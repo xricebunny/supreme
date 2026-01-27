@@ -66,7 +66,7 @@ export default function Home() {
           const positionId = result.events.find(
             (e: any) => e.type.includes("PositionOpened")
           )?.data?.positionId || `pos-${Date.now()}`;
-          confirmBet(localBet.id, positionId, result.transactionId || "");
+          confirmBet(localBet.id, positionId);
         } else {
           failBet(localBet.id);
         }

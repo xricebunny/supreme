@@ -1,30 +1,34 @@
 "use client";
 
-import { Magic } from "magic-sdk";
-import { FlowExtension } from "@magic-ext/flow";
-
 // Magic.link configuration for Flow
 const MAGIC_API_KEY = process.env.NEXT_PUBLIC_MAGIC_API_KEY || "";
 
 // Demo mode - works without real API key
 const DEMO_MODE = !MAGIC_API_KEY || MAGIC_API_KEY === "pk_live_YOUR_MAGIC_API_KEY_HERE";
 
-// Flow network configuration
-const FLOW_NETWORK = {
-  rpcUrl: "https://rest-testnet.onflow.org",
-  network: "testnet" as const,
-};
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let magicInstance: any = null;
 
-let magicInstance: Magic | null = null;
-
-// Initialize Magic with Flow extension
-export const getMagic = () => {
+// Initialize Magic with Flow extension.
+// NOTE: magic-sdk@28 has a broken internal dependency (@magic-sdk/provider imports
+// 'Wallets'/'Events' from @magic-sdk/types which don't exist). We use a webpack-opaque
+// require to avoid the build error. Once magic-sdk fixes this, switch back to a normal import.
+export const getMagic = async () => {
   if (typeof window === "undefined") return null;
   if (DEMO_MODE) return null;
 
   if (!magicInstance && MAGIC_API_KEY) {
+    // Use Function constructor to create a require that webpack cannot statically analyze,
+    // preventing it from bundling the broken magic-sdk ESM at build time.
+    const loadModule = (name: string) =>
+      new Function("name", "return import(name)")(name);
+    const { Magic } = await loadModule("magic-sdk");
+    const { FlowExtension } = await loadModule("@magic-ext/flow");
     magicInstance = new Magic(MAGIC_API_KEY, {
-      extensions: [new FlowExtension(FLOW_NETWORK)],
+      extensions: [new FlowExtension({
+        rpcUrl: "https://rest-testnet.onflow.org",
+        network: "testnet",
+      })],
     });
   }
 
@@ -38,7 +42,7 @@ export const loginWithEmail = async (email: string) => {
     return "demo-token";
   }
 
-  const magic = getMagic();
+  const magic = await getMagic();
   if (!magic) throw new Error("Magic not initialized");
 
   try {
@@ -57,7 +61,7 @@ export const loginWithSocial = async (provider: "google" | "twitter" | "discord"
     return "demo-token";
   }
 
-  const magic = getMagic();
+  const magic = await getMagic();
   if (!magic) throw new Error("Magic not initialized");
 
   try {
@@ -79,7 +83,7 @@ export const logout = async () => {
     return;
   }
 
-  const magic = getMagic();
+  const magic = await getMagic();
   if (!magic) throw new Error("Magic not initialized");
 
   try {
@@ -96,7 +100,7 @@ export const getUserInfo = async () => {
     return { email: "demo@emerpus.finance" };
   }
 
-  const magic = getMagic();
+  const magic = await getMagic();
   if (!magic) throw new Error("Magic not initialized");
 
   try {
@@ -115,7 +119,7 @@ export const getUserInfo = async () => {
 export const isLoggedIn = async () => {
   if (DEMO_MODE) return false; // Start logged out in demo
 
-  const magic = getMagic();
+  const magic = await getMagic();
   if (!magic) return false;
 
   try {
@@ -131,7 +135,7 @@ export const getFlowAddress = async (): Promise<string | null> => {
     return "0xDEMO1234567890";
   }
 
-  const magic = getMagic();
+  const magic = await getMagic();
   if (!magic) return null;
 
   try {

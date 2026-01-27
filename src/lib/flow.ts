@@ -29,7 +29,7 @@ export const currentUser = fcl.currentUser;
 
 export const getUserAddress = async (): Promise<string | null> => {
   const user = await fcl.currentUser.snapshot();
-  return user.addr;
+  return user.addr ?? null;
 };
 
 // Mock transaction result for demo mode
@@ -41,11 +41,14 @@ const mockTxResult = (positionId?: string): FlowTransaction => ({
   transactionId: `demo-tx-${Date.now()}`,
 });
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type FCLArgs = any;
+
 // Execute script
-export const executeScript = async (script: string, args: any[] = []) => {
+export const executeScript = async (script: string, args: FCLArgs = []) => {
   const response = await fcl.query({
     cadence: script,
-    args: (arg: any, t: any) => args,
+    args,
   });
   return response;
 };
@@ -53,12 +56,12 @@ export const executeScript = async (script: string, args: any[] = []) => {
 // Send transaction
 export const sendTransaction = async (
   transaction: string,
-  args: any[] = [],
+  args: FCLArgs = [],
   limit: number = 9999
 ): Promise<FlowTransaction> => {
   const transactionId = await fcl.mutate({
     cadence: transaction,
-    args: (arg: any, t: any) => args,
+    args,
     limit,
   });
 
