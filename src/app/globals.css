@@ -1,0 +1,288 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-primary: #1a0a20;
+  --bg-secondary: #2d1f3d;
+  --bg-tertiary: #3d2a50;
+  --border-grid: #3d2a50;
+  
+  --pink-primary: #d946ef;
+  --pink-glow: rgba(217, 70, 239, 0.5);
+  --pink-dim: rgba(217, 70, 239, 0.15);
+  
+  --yellow-bet: #e8e855;
+  --yellow-border: #f0f070;
+  --yellow-glow: rgba(232, 232, 85, 0.4);
+  
+  --purple-accent: #a78bfa;
+  --text-muted: #6b5280;
+  --text-dim: #4b5563;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg-primary);
+  color: #fff;
+  font-family: 'Inter', -apple-system, sans-serif;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Grid cell base */
+.grid-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.1s ease;
+}
+
+.grid-cell:active {
+  transform: scale(0.97);
+}
+
+/* Bet cell - Yellow */
+.bet-cell {
+  background: var(--yellow-bet) !important;
+  border: 2px solid var(--yellow-border) !important;
+  border-radius: 4px;
+  box-shadow: 0 0 12px var(--yellow-glow);
+}
+
+.bet-cell-pending {
+  opacity: 0.7;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 0.95; }
+}
+
+.bet-cell-hit {
+  animation: hit 0.4s ease-out;
+}
+
+@keyframes hit {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.15); box-shadow: 0 0 25px var(--yellow-glow), 0 0 40px var(--pink-glow); }
+  100% { transform: scale(1); }
+}
+
+/* Price line */
+.price-line {
+  stroke: var(--pink-primary);
+  stroke-width: 2.5;
+  fill: none;
+  filter: drop-shadow(0 0 6px var(--pink-glow));
+}
+
+/* Cancel overlay */
+.cancel-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(239, 68, 68, 0.65);
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+/* Buttons */
+.btn-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 9999px;
+  background: var(--bg-secondary);
+  border: none;
+  color: #fff;
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-pill:hover {
+  background: var(--bg-tertiary);
+}
+
+.btn-pill:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-circle {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--bg-secondary);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 18px;
+  transition: background 0.15s;
+}
+
+.btn-circle:hover {
+  background: var(--bg-tertiary);
+}
+
+/* Nav buttons */
+.nav-btn {
+  padding: 10px 28px;
+  border-radius: 9999px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 22px;
+  transition: background 0.15s;
+}
+
+.nav-btn.active {
+  background: var(--bg-secondary);
+}
+
+/* Price badge */
+.price-badge {
+  position: absolute;
+  right: 0;
+  padding: 4px 10px;
+  border-radius: 4px;
+  background: var(--pink-primary);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  z-index: 20;
+}
+
+/* Price row highlight */
+.price-row-highlight {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: var(--pink-dim);
+  border-top: 1px solid rgba(217, 70, 239, 0.35);
+  border-bottom: 1px solid rgba(217, 70, 239, 0.35);
+  pointer-events: none;
+}
+
+/* Multiplier text */
+.mult-text {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.bet-amount {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.bet-mult {
+  font-size: 11px;
+  font-weight: 500;
+  color: #4a4a4a;
+}
+
+/* Spinner */
+.spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--bg-tertiary);
+  border-top-color: var(--pink-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Status badge */
+.status-tx {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: #f59e0b;
+  color: #000;
+  font-size: 8px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-weight: 700;
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal-content {
+  background: linear-gradient(145deg, var(--bg-secondary), var(--bg-primary));
+  border: 1px solid var(--border-grid);
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 380px;
+  width: 92%;
+}
+
+/* Oracle indicator */
+.oracle-live {
+  color: #22c55e;
+}
+
+.oracle-stale {
+  color: #ef4444;
+}
+
+/* Primary button */
+.btn-primary {
+  background: #d946ef;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.btn-primary:hover {
+  opacity: 0.9;
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Loading spinner variant */
+.loading-spinner {
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
