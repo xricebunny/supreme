@@ -32,7 +32,7 @@ export default function GameHeader({
             letterSpacing: "-0.5px",
           }}
         >
-          emerpus
+          Supreme
         </h1>
       </div>
 

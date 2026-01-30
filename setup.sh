@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Emerpus - Setup Script
+# Supreme - Setup Script
 # Run this once after cloning
 
-echo "🎮 Setting up Emerpus..."
+echo "🎮 Setting up Supreme..."
 
 # Check Node.js
 if ! command -v node &> /dev/null; then

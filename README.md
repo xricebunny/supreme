@@ -1,4 +1,4 @@
-# Emerpus - Flow Price Prediction Game
+# Supreme - Flow Price Prediction Game
 
 A price prediction game built on Flow.
 
