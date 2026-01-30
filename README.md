@@ -1,75 +1,106 @@
-# Supreme - Flow Price Prediction Game
+# Supreme - Visual Price Prediction Game
 
-A price prediction game built on Flow.
+Turn price prediction into a spatial game. You don't choose leverage or set limit orders. You place conviction on a grid around a moving price line. The closer you play, the safer you are. The farther you reach, the higher the reward—and the higher the risk.
+
+Built on Flow blockchain.
 
 ## Quick Start
 
 ```bash
-# 1. Install
-npm install && cp .env.example .env.local
-
-# 2. Run
-npm run dev
+# Install & run
+npm install && npm run dev
 ```
 
 Open http://localhost:3000 - works immediately in demo mode!
 
 ## Features
 
-- 📊 **Price/Time Grid**: Y-axis shows price levels, X-axis shows time
-- 📈 **Live Price Line**: Pink/magenta animated price line with glow
-- 🟨 **Yellow Bet Cells**: Place bets with visual feedback
-- 👆 **Single-tap Betting**: Tap to place, hold to cancel
-- ⛓️ **On-chain Settlement**: Positions escrowed and settled via oracle
-- 🔐 **Dual Auth**: Magic.link email + Flow wallets (Blocto, Lilico, Dapper)
+### Core Gameplay
+- **Price/Time Grid**: 14-row price grid with real-time price movement
+- **Visual Betting**: Tap cells to place bets, see multipliers instantly
+- **Risk = Distance**: Further from price line = higher multiplier = higher risk
+- **Instant Feedback**: Win/loss animations, confetti, screen shake
 
-## UI Design
+### User Experience
+- **Onboarding Tutorial**: 6-step interactive guide for new users
+- **Stats Dashboard**: Win rate, profit/loss, streaks, performance metrics
+- **Leaderboard**: Daily/weekly/all-time rankings
+- **Position History**: Track all your settled bets
+- **Sound Effects**: Procedural audio for bets, wins, losses
+- **Haptic Feedback**: Vibration patterns for mobile interactions
 
-| Element | Color |
-|---------|-------|
-| Background | `#1a0a20` (dark purple) |
-| Price line | `#d946ef` (pink/magenta) |
-| Bet cells | `#e8e855` (yellow) |
-| Price badge | `#d946ef` (pink) |
-| Muted text | `#6b5280` |
+### Technical
+- **PWA Support**: Install as mobile app, works offline
+- **Settings Panel**: Toggle sounds, haptics, reset tutorial
+- **On-chain Settlement**: Positions escrowed and settled via oracle
+- **Dual Auth**: Magic.link email + Flow wallets (Blocto, Lilico, Dapper)
 
-## Architecture
+## How to Play
 
-### Trust Boundary
-- UI animations are **indicative only**
-- All funds escrowed **on-chain**
-- Settlement via **Increment oracle**
+| Action | Gesture |
+|--------|---------|
+| Place bet | Tap any grid cell |
+| Stack bet | Tap existing bet cell |
+| Cancel bet | Hold 0.5s (red fill animation) |
+| Change amount | Tap bid pill ($5/$10/$25/$50/$100) |
 
-### On-chain Flow
-1. **Open Position**: Tap cell -> `openPosition` tx -> stake escrowed
-2. **Settle Position**: After expiry -> `settlePosition` tx -> payout
-3. **Emergency Cancel**: If oracle stale -> `cancelPosition` tx -> refund
+### Understanding Multipliers
+
+```
+Distance from price = Higher multiplier = Higher risk
+
+Safe (close to price):    1.5x - 2.0x
+Medium:                   2.5x - 3.5x
+Risky (far from price):   4.0x - 5.0x+
+```
+
+## Screenshots
+
+The grid shows:
+- **Y-axis**: Price levels ($3818-$3823)
+- **X-axis**: Time progression
+- **Pink line**: Current market price
+- **Yellow cells**: Your active bets
 
 ## Tech Stack
 
-- **Framework**: Next.js 14 (App Router)
-- **Auth**: Magic.link + Flow FCL
-- **Blockchain**: Flow Testnet
-- **Contract**: Cadence (MicroOptionsMVP)
-- **Styling**: Tailwind CSS
+| Layer | Technology |
+|-------|------------|
+| Framework | Next.js 14 (App Router) |
+| UI | React 18 + Tailwind CSS |
+| Animations | Framer Motion + CSS |
+| Blockchain | Flow Testnet + Cadence |
+| Auth | Magic.link + FCL |
+| Audio | Web Audio API |
 
 ## Project Structure
 
 ```
 src/
 ├── app/
-│   ├── globals.css      # Emerpus theme
-│   └── page.tsx         # Main game
+│   ├── globals.css       # Theme & component styles
+│   ├── layout.tsx        # PWA config, metadata
+│   └── page.tsx          # Main game orchestration
 ├── components/
-│   ├── GameGrid.tsx     # Grid with price/time axes
-│   ├── GameHeader.tsx   # Brand + price display
-│   ├── BottomControls.tsx # Balance, bid, nav
-│   └── AuthModal.tsx    # Login modal
+│   ├── GameGrid.tsx      # 14x6 betting grid
+│   ├── GameHeader.tsx    # Price display, settings
+│   ├── BottomControls.tsx # Balance, bid, navigation
+│   ├── Confetti.tsx      # Win celebration particles
+│   ├── Onboarding.tsx    # Tutorial overlay
+│   ├── Settings.tsx      # Sound/haptic toggles
+│   ├── StatsDashboard.tsx # Performance metrics
+│   ├── Leaderboard.tsx   # Player rankings
+│   ├── PositionHistory.tsx # Bet history
+│   └── AuthModal.tsx     # Login modal
 ├── hooks/
-│   └── index.ts         # State management
-└── lib/
-    ├── flow.ts          # FCL + contract calls
-    └── magic.ts         # Magic.link config
+│   └── index.ts          # useGameState, useAuth, useOracle
+├── lib/
+│   ├── flow.ts           # FCL + contract calls
+│   ├── magic.ts          # Magic.link config
+│   ├── sounds.ts         # Web Audio sound effects
+│   └── haptics.ts        # Vibration API
+└── types/
+    └── index.ts          # TypeScript interfaces
 
 cadence/
 ├── contracts/
@@ -80,48 +111,101 @@ cadence/
 │   └── cancelPositionAfterTimeout.cdc
 └── scripts/
     └── getOracleSnapshot.cdc
+
+public/
+├── manifest.json         # PWA manifest
+├── sw.js                 # Service worker
+└── icons/                # App icons
 ```
 
-## Getting Started
+## Design System
+
+| Element | Color | Hex |
+|---------|-------|-----|
+| Background | Dark purple | `#1a0a20` |
+| Secondary | Mid purple | `#2d1f3d` |
+| Grid lines | Light purple | `#3d2a50` |
+| Price line | Pink/magenta | `#d946ef` |
+| Bet cells | Yellow | `#e8e855` |
+| Win | Green | `#22c55e` |
+| Loss | Red | `#ef4444` |
+| Muted text | Purple | `#6b5280` |
+
+## On-chain Architecture
+
+### Trust Boundary
+- UI animations are **indicative only**
+- All funds escrowed **on-chain**
+- Settlement via **Increment oracle**
+
+### Position Lifecycle
+```
+1. OPEN    → User stakes tokens → Contract holds in vault
+2. ACTIVE  → Wait for position duration (60 blocks)
+3. SETTLE  → Oracle price checked → Win/loss determined
+4. PAYOUT  → Winner receives stake × multiplier
+```
+
+### Contract Config
+```
+maxStaleBlocksEntry: 50 blocks (~1 min)
+maxStaleBlocksSettle: 100 blocks (~2 min)
+positionDurationBlocks: 60 blocks (~1.5 min)
+emergencyCancelTimeout: 400 blocks (~10 min)
+
+Multiplier Tiers:
+  Tier 0: 1.15x    Tier 3: 2.50x
+  Tier 1: 1.50x    Tier 4: 3.50x
+  Tier 2: 2.00x    Tier 5+: 5.00x
+```
+
+## Development
 
 ```bash
-# Install
+# Install dependencies
 npm install
 
-# Configure
-cp .env.example .env.local
-# Add: NEXT_PUBLIC_MAGIC_API_KEY=pk_live_YOUR_KEY
-
-# Run
+# Development server
 npm run dev
+
+# Production build
+npm run build
+
+# Type checking
+npm run lint
 ```
 
-Open http://localhost:3000
+### Environment Variables
 
-## UX
-
-| Action | Gesture |
-|--------|---------|
-| Place bet | Tap empty cell |
-| Stack bet | Tap existing bet |
-| Cancel bet | Hold 0.5s (red fill) |
-| Change amount | Tap bid pill |
-
-## Contract Config
-
+```bash
+# .env.local
+NEXT_PUBLIC_MAGIC_API_KEY=pk_live_YOUR_KEY
 ```
-maxStaleBlocksEntry: 50 (~1 min)
-maxStaleBlocksSettle: 100 (~2 min)
-positionDurationBlocks: 60 (~1.5 min)
 
-Multipliers:
-  Tier 0: 1.15x
-  Tier 1: 1.50x
-  Tier 2: 2.00x
-  ...
-  Tier 5+: 5.00x
-```
+## PWA Installation
+
+### iOS
+1. Open in Safari
+2. Tap Share button
+3. "Add to Home Screen"
+
+### Android
+1. Open in Chrome
+2. Tap menu (⋮)
+3. "Install app" or "Add to Home screen"
+
+## Contributing
+
+1. Fork the repo
+2. Create feature branch (`git checkout -b feature/amazing`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing`)
+5. Open a Pull Request
 
 ## License
 
 MIT
+
+---
+
+Built with conviction on Flow.
