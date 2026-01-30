@@ -1,11 +1,24 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { GameGrid, GameHeader, BottomControls, AuthModal, Confetti, PositionHistory } from "@/components";
+import {
+  GameGrid,
+  GameHeader,
+  BottomControls,
+  AuthModal,
+  Confetti,
+  PositionHistory,
+  Leaderboard,
+  Onboarding,
+} from "@/components";
 import { useAuth, useGameState, useOracle } from "@/hooks";
 import { logout } from "@/lib/magic";
 import { initFCL, openPosition, cancelPosition } from "@/lib/flow";
+import { haptics } from "@/lib/haptics";
+import { sounds } from "@/lib/sounds";
 import { LocalBet } from "@/types";
+
+const ONBOARDING_KEY = "supreme_onboarding_completed";
 
 export default function Home() {
   const { user, loading: authLoading, checkAuth, setUser } = useAuth();
@@ -30,14 +43,34 @@ export default function Home() {
 
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [screenShake, setScreenShake] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
 
-  // Screen shake on loss
+  // Check if onboarding has been completed
   useEffect(() => {
-    if (lastSettlement && !lastSettlement.won) {
-      setScreenShake(true);
-      const timer = setTimeout(() => setScreenShake(false), 400);
-      return () => clearTimeout(timer);
+    if (typeof window !== "undefined") {
+      const completed = localStorage.getItem(ONBOARDING_KEY);
+      if (!completed) {
+        setShowOnboarding(true);
+      }
+    }
+  }, []);
+
+  // Play sounds on settlement
+  useEffect(() => {
+    if (lastSettlement) {
+      if (lastSettlement.won) {
+        sounds.win();
+        haptics.success();
+      } else {
+        sounds.loss();
+        haptics.error();
+        setScreenShake(true);
+        const timer = setTimeout(() => setScreenShake(false), 400);
+        return () => clearTimeout(timer);
+      }
     }
   }, [lastSettlement]);
 
@@ -59,6 +92,14 @@ export default function Home() {
     }
   }, [authLoading, user, setUser]);
 
+  // Handle onboarding completion
+  const handleOnboardingComplete = useCallback(() => {
+    setShowOnboarding(false);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(ONBOARDING_KEY, "true");
+    }
+  }, []);
+
   // Place bet handler
   const handlePlaceBet = useCallback(
     async (row: number, col: number, amount: number) => {
@@ -69,8 +110,13 @@ export default function Home() {
 
       if (oracleSnapshot?.isStale) {
         console.warn("Oracle stale - betting paused");
+        haptics.warning();
         return;
       }
+
+      // Feedback
+      haptics.tap();
+      sounds.bet();
 
       const localBet = addLocalBet(row, col, amount, currentPrice);
 
@@ -82,12 +128,15 @@ export default function Home() {
             (e: any) => e.type.includes("PositionOpened")
           )?.data?.positionId || `pos-${Date.now()}`;
           confirmBet(localBet.id, positionId);
+          sounds.coin();
         } else {
           failBet(localBet.id);
+          haptics.error();
         }
       } catch (error) {
         console.error("Failed to place bet:", error);
         failBet(localBet.id);
+        haptics.error();
       }
     },
     [user, oracleSnapshot, addLocalBet, confirmBet, failBet, currentPrice]
@@ -99,6 +148,8 @@ export default function Home() {
       if (!user || !bet.positionId) return;
       if (oracleSnapshot?.isStale) return;
 
+      haptics.tap();
+      sounds.coin();
       stackBet(bet, additionalAmount);
 
       try {
@@ -119,6 +170,9 @@ export default function Home() {
   // Cancel bet handler
   const handleCancelBet = useCallback(
     async (bet: LocalBet) => {
+      haptics.press();
+      sounds.cancel();
+
       if (!user || !bet.positionId) {
         removeBet(bet.id);
         return;
@@ -142,7 +196,22 @@ export default function Home() {
   }, [checkAuth]);
 
   const handleConnectClick = useCallback(() => {
+    haptics.tap();
+    sounds.click();
     setShowAuthModal(true);
+  }, []);
+
+  const handleBidSizeChange = useCallback((size: number) => {
+    haptics.tap();
+    sounds.click();
+    setBidSize(size);
+  }, [setBidSize]);
+
+  const toggleSound = useCallback(() => {
+    setSoundEnabled((prev) => {
+      sounds.setEnabled(!prev);
+      return !prev;
+    });
   }, []);
 
   if (authLoading) {
@@ -162,7 +231,8 @@ export default function Home() {
         oracleSnapshot={oracleSnapshot}
         oracleLoading={oracleLoading}
         onConnectClick={handleConnectClick}
-        onSettingsClick={() => {}}
+        onSettingsClick={toggleSound}
+        soundEnabled={soundEnabled}
       />
 
       {/* Grid */}
@@ -183,10 +253,19 @@ export default function Home() {
         user={user}
         balance={balance}
         bidSize={bidSize}
-        onBidSizeChange={setBidSize}
+        onBidSizeChange={handleBidSizeChange}
         oracleStale={oracleSnapshot?.isStale || false}
         onConnectClick={handleConnectClick}
-        onHistoryClick={() => setShowHistory(true)}
+        onHistoryClick={() => {
+          haptics.tap();
+          sounds.click();
+          setShowHistory(true);
+        }}
+        onLeaderboardClick={() => {
+          haptics.tap();
+          sounds.click();
+          setShowLeaderboard(true);
+        }}
         hasHistory={history.length > 0}
       />
 
@@ -205,6 +284,19 @@ export default function Home() {
         totalWins={historyStats.totalWins}
         totalLosses={historyStats.totalLosses}
         netProfit={historyStats.netProfit}
+      />
+
+      {/* Leaderboard */}
+      <Leaderboard
+        isOpen={showLeaderboard}
+        onClose={() => setShowLeaderboard(false)}
+        currentUserAddress={user?.address}
+      />
+
+      {/* Onboarding Tutorial */}
+      <Onboarding
+        isOpen={showOnboarding}
+        onComplete={handleOnboardingComplete}
       />
 
       {/* Win Celebration */}

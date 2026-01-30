@@ -4,3 +4,5 @@ export { default as BottomControls } from "./BottomControls";
 export { default as AuthModal } from "./AuthModal";
 export { default as Confetti } from "./Confetti";
 export { default as PositionHistory } from "./PositionHistory";
+export { default as Leaderboard } from "./Leaderboard";
+export { default as Onboarding } from "./Onboarding";
