@@ -105,15 +105,15 @@ export default function Home() {
         const result = await openPosition(bet.row, bet.col, additionalAmount);
         if (result.status !== 4) {
           removeBet(bet.id);
-          addLocalBet(bet.row, bet.col, bet.amount - additionalAmount);
+          addLocalBet(bet.row, bet.col, bet.amount - additionalAmount, currentPrice);
         }
       } catch (error) {
         console.error("Failed to stack:", error);
         removeBet(bet.id);
-        addLocalBet(bet.row, bet.col, bet.amount - additionalAmount);
+        addLocalBet(bet.row, bet.col, bet.amount - additionalAmount, currentPrice);
       }
     },
-    [user, oracleSnapshot, stackBet, removeBet, addLocalBet]
+    [user, oracleSnapshot, stackBet, removeBet, addLocalBet, currentPrice]
   );
 
   // Cancel bet handler
