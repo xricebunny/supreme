@@ -9,6 +9,7 @@ interface GameHeaderProps {
   oracleLoading: boolean;
   onConnectClick: () => void;
   onSettingsClick: () => void;
+  soundEnabled?: boolean;
 }
 
 export default function GameHeader({
@@ -18,6 +19,7 @@ export default function GameHeader({
   oracleLoading,
   onConnectClick,
   onSettingsClick,
+  soundEnabled = true,
 }: GameHeaderProps) {
   return (
     <div style={{ background: "#1a0a20" }}>
@@ -65,9 +67,9 @@ export default function GameHeader({
             </div>
           ) : null}
 
-          {/* Settings */}
+          {/* Sound toggle */}
           <button onClick={onSettingsClick} className="btn-circle">
-            ⚙️
+            {soundEnabled ? "🔊" : "🔇"}
           </button>
         </div>
       </div>

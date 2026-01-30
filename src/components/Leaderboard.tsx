@@ -42,10 +42,10 @@ export default function Leaderboard({
     const timer = setTimeout(() => {
       // Randomize balances slightly based on filter to simulate different data
       const multiplier = timeFilter === "daily" ? 0.1 : timeFilter === "weekly" ? 0.5 : 1;
-      const data = MOCK_LEADERBOARD.map((entry, i) => ({
+      const data: LeaderboardEntry[] = MOCK_LEADERBOARD.map((entry, i) => ({
         ...entry,
         balance: Math.round(entry.balance * multiplier * (1 + Math.random() * 0.2) * 100) / 100,
-        isCurrentUser: currentUserAddress && i === 7, // Simulate current user at rank 8
+        isCurrentUser: !!(currentUserAddress && i === 7), // Simulate current user at rank 8
       }));
       setEntries(data);
       setLoading(false);
