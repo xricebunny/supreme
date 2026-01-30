@@ -10,6 +10,7 @@ interface BottomControlsProps {
   oracleStale: boolean;
   onConnectClick: () => void;
   onHistoryClick?: () => void;
+  onLeaderboardClick?: () => void;
   hasHistory?: boolean;
 }
 
@@ -23,6 +24,7 @@ export default function BottomControls({
   oracleStale,
   onConnectClick,
   onHistoryClick,
+  onLeaderboardClick,
   hasHistory,
 }: BottomControlsProps) {
   const cycleBid = () => {
@@ -69,6 +71,9 @@ export default function BottomControls({
       <div className="flex items-center justify-around py-1">
         <button className="nav-btn active">
           <span>📈</span>
+        </button>
+        <button className="nav-btn" onClick={onLeaderboardClick}>
+          <span>🏆</span>
         </button>
         <button
           className="nav-btn"
