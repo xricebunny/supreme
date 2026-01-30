@@ -6,3 +6,5 @@ export { default as Confetti } from "./Confetti";
 export { default as PositionHistory } from "./PositionHistory";
 export { default as Leaderboard } from "./Leaderboard";
 export { default as Onboarding } from "./Onboarding";
+export { default as Settings } from "./Settings";
+export { default as StatsDashboard } from "./StatsDashboard";
