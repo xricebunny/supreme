@@ -9,6 +9,8 @@ interface BottomControlsProps {
   onBidSizeChange: (value: number) => void;
   oracleStale: boolean;
   onConnectClick: () => void;
+  onHistoryClick?: () => void;
+  hasHistory?: boolean;
 }
 
 const BID_OPTIONS = [5, 10, 25, 50, 100];
@@ -20,6 +22,8 @@ export default function BottomControls({
   onBidSizeChange,
   oracleStale,
   onConnectClick,
+  onHistoryClick,
+  hasHistory,
 }: BottomControlsProps) {
   const cycleBid = () => {
     const idx = BID_OPTIONS.indexOf(bidSize);
@@ -66,8 +70,25 @@ export default function BottomControls({
         <button className="nav-btn active">
           <span>📈</span>
         </button>
-        <button className="nav-btn">
-          <span style={{ opacity: 0.5 }}>🏆</span>
+        <button
+          className="nav-btn"
+          onClick={onHistoryClick}
+          style={{ position: "relative" }}
+        >
+          <span style={{ opacity: hasHistory ? 1 : 0.5 }}>📋</span>
+          {hasHistory && (
+            <span
+              style={{
+                position: "absolute",
+                top: 6,
+                right: 20,
+                width: 8,
+                height: 8,
+                background: "#22c55e",
+                borderRadius: "50%",
+              }}
+            />
+          )}
         </button>
         <button className="nav-btn" onClick={!user ? onConnectClick : undefined}>
           <span style={{ opacity: user ? 1 : 0.5 }}>👤</span>

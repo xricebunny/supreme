@@ -154,7 +154,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col select-none" style={{ background: "#1a0a20" }}>
+    <div className={`min-h-screen flex flex-col select-none ${screenShake ? "screen-shake" : ""}`} style={{ background: "#1a0a20" }}>
       {/* Header */}
       <GameHeader
         user={user}
@@ -186,6 +186,8 @@ export default function Home() {
         onBidSizeChange={setBidSize}
         oracleStale={oracleSnapshot?.isStale || false}
         onConnectClick={handleConnectClick}
+        onHistoryClick={() => setShowHistory(true)}
+        hasHistory={history.length > 0}
       />
 
       {/* Auth Modal */}
@@ -194,6 +196,35 @@ export default function Home() {
         onClose={() => setShowAuthModal(false)}
         onSuccess={handleAuthSuccess}
       />
+
+      {/* Position History */}
+      <PositionHistory
+        isOpen={showHistory}
+        onClose={() => setShowHistory(false)}
+        positions={history}
+        totalWins={historyStats.totalWins}
+        totalLosses={historyStats.totalLosses}
+        netProfit={historyStats.netProfit}
+      />
+
+      {/* Win Celebration */}
+      <Confetti
+        active={lastSettlement?.won === true}
+        onComplete={clearLastSettlement}
+      />
+
+      {/* Settlement Toast */}
+      {lastSettlement && (
+        <div className={`settlement-toast ${lastSettlement.won ? "win" : "loss"}`}>
+          {lastSettlement.won ? "YOU WON!" : "LOSS"}
+          <span className="toast-amount">
+            {lastSettlement.won ? "+" : "-"}$
+            {lastSettlement.won
+              ? lastSettlement.payout.toFixed(2)
+              : "Bet Lost"}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
