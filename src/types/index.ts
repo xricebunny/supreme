@@ -11,8 +11,24 @@ export interface LocalBet {
   row: number;
   col: number;
   placedAt: number;
-  status: "pending" | "confirmed" | "hit" | "settled" | "cancelled";
+  status: "pending" | "confirmed" | "hit" | "settling" | "settled" | "cancelled";
   positionId?: string; // Links to on-chain position after tx sealed
+  entryPrice?: number;
+  multiplier?: string;
+}
+
+// Settled position for history tracking
+export interface SettledPosition {
+  id: string;
+  stake: number;
+  row: number;
+  col: number;
+  multiplier: string;
+  entryPrice: number;
+  exitPrice: number;
+  won: boolean;
+  payout: number;
+  settledAt: number;
 }
 
 // On-chain position from contract

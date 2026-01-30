@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { User, LocalBet, PricePoint, OracleSnapshot, Position } from "@/types";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { User, LocalBet, PricePoint, OracleSnapshot, Position, SettledPosition } from "@/types";
 import { getUserInfo, isLoggedIn, getFlowAddress } from "@/lib/magic";
 
 // Auth hook
@@ -49,6 +49,9 @@ export const useGameState = () => {
   const [bets, setBets] = useState<LocalBet[]>([]);
   const [bidSize, setBidSize] = useState(10);
   const [balance, setBalance] = useState(30.93);
+  const [history, setHistory] = useState<SettledPosition[]>([]);
+  const [lastSettlement, setLastSettlement] = useState<{ won: boolean; payout: number } | null>(null);
+  const settlementTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Initialize price
   useEffect(() => {
@@ -78,7 +81,15 @@ export const useGameState = () => {
     return () => clearInterval(iv);
   }, []);
 
-  // Hit detection
+  // Calculate multiplier
+  const getMult = useCallback((r: number, c: number, priceRow: number) => {
+    const COLS = 6;
+    const pd = Math.abs(r - priceRow);
+    const td = COLS - c;
+    return (1.0 + pd * 0.8 + td * 3.0 + pd * td * 0.35).toFixed(1);
+  }, []);
+
+  // Hit detection and auto-settlement
   useEffect(() => {
     const BASE = 3820.0;
     const STEP = 0.5;
@@ -93,16 +104,89 @@ export const useGameState = () => {
       }
     }
 
-    setBets((prev) =>
-      prev.map((b) =>
-        b.status === "confirmed" && b.row === row
-          ? { ...b, status: "hit" as const }
-          : b
-      )
-    );
-  }, [currentPrice]);
+    setBets((prev) => {
+      const updated = prev.map((b) => {
+        // Mark confirmed bets at current price row as hit
+        if (b.status === "confirmed" && b.row === row) {
+          return {
+            ...b,
+            status: "hit" as const,
+            entryPrice: b.entryPrice || currentPrice,
+            multiplier: b.multiplier || getMult(b.row, b.col, row)
+          };
+        }
+        return b;
+      });
+      return updated;
+    });
+  }, [currentPrice, getMult]);
 
-  const addLocalBet = useCallback((row: number, col: number, amount: number): LocalBet => {
+  // Auto-settle hit bets after delay
+  useEffect(() => {
+    const hitBets = bets.filter((b) => b.status === "hit");
+
+    hitBets.forEach((bet) => {
+      // Settle after 1.5 seconds of being hit
+      setTimeout(() => {
+        setBets((prev) => {
+          const current = prev.find((b) => b.id === bet.id);
+          if (!current || current.status !== "hit") return prev;
+
+          // 60% win rate for demo (makes it more engaging)
+          const won = Math.random() < 0.6;
+          const mult = parseFloat(current.multiplier || "1.5");
+          const payout = won ? current.amount * mult : 0;
+
+          // Add to history
+          const settledPosition: SettledPosition = {
+            id: current.id,
+            stake: current.amount,
+            row: current.row,
+            col: current.col,
+            multiplier: current.multiplier || "1.5",
+            entryPrice: current.entryPrice || 3820.5,
+            exitPrice: currentPrice,
+            won,
+            payout,
+            settledAt: Date.now(),
+          };
+
+          setHistory((h) => [settledPosition, ...h].slice(0, 50)); // Keep last 50
+
+          // Update balance if won
+          if (won) {
+            setBalance((b) => b + payout);
+          }
+
+          // Trigger celebration/loss animation
+          setLastSettlement({ won, payout });
+          if (settlementTimeoutRef.current) {
+            clearTimeout(settlementTimeoutRef.current);
+          }
+          settlementTimeoutRef.current = setTimeout(() => {
+            setLastSettlement(null);
+          }, 2500);
+
+          // Remove the bet
+          return prev.filter((b) => b.id !== bet.id);
+        });
+      }, 1500);
+    });
+  }, [bets, currentPrice]);
+
+  const addLocalBet = useCallback((row: number, col: number, amount: number, price: number): LocalBet => {
+    const BASE = 3820.0;
+    const STEP = 0.5;
+    const ROWS = 14;
+    let priceRow = 0;
+    for (let i = 0; i < ROWS; i++) {
+      const priceAt = BASE + (ROWS / 2 - i) * STEP;
+      if (price >= priceAt - STEP / 2) {
+        priceRow = i;
+        break;
+      }
+    }
+
     const bet: LocalBet = {
       id: `local-${Date.now()}`,
       row,
@@ -111,11 +195,13 @@ export const useGameState = () => {
       status: "pending",
       positionId: undefined,
       placedAt: Date.now(),
+      entryPrice: price,
+      multiplier: getMult(row, col, priceRow),
     };
     setBets((p) => [...p, bet]);
     setBalance((b) => b - amount);
     return bet;
-  }, []);
+  }, [getMult]);
 
   const confirmBet = useCallback((localId: string, positionId: string) => {
     setBets((p) =>
