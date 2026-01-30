@@ -10,6 +10,8 @@ import {
   PositionHistory,
   Leaderboard,
   Onboarding,
+  Settings,
+  StatsDashboard,
 } from "@/components";
 import { useAuth, useGameState, useOracle } from "@/hooks";
 import { logout } from "@/lib/magic";
@@ -19,6 +21,8 @@ import { sounds } from "@/lib/sounds";
 import { LocalBet } from "@/types";
 
 const ONBOARDING_KEY = "supreme_onboarding_completed";
+const SOUND_KEY = "supreme_sound_enabled";
+const HAPTICS_KEY = "supreme_haptics_enabled";
 
 export default function Home() {
   const { user, loading: authLoading, checkAuth, setUser } = useAuth();
@@ -38,6 +42,7 @@ export default function Home() {
     historyStats,
     lastSettlement,
     clearLastSettlement,
+    clearHistory,
   } = useGameState();
   const { snapshot: oracleSnapshot, loading: oracleLoading } = useOracle();
 
@@ -45,16 +50,40 @@ export default function Home() {
   const [showHistory, setShowHistory] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showStats, setShowStats] = useState(false);
   const [screenShake, setScreenShake] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [hapticsEnabled, setHapticsEnabled] = useState(true);
 
-  // Check if onboarding has been completed
+  // Load settings from localStorage
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const completed = localStorage.getItem(ONBOARDING_KEY);
-      if (!completed) {
+      const onboardingCompleted = localStorage.getItem(ONBOARDING_KEY);
+      if (!onboardingCompleted) {
         setShowOnboarding(true);
       }
+
+      const savedSound = localStorage.getItem(SOUND_KEY);
+      if (savedSound !== null) {
+        const enabled = savedSound === "true";
+        setSoundEnabled(enabled);
+        sounds.setEnabled(enabled);
+      }
+
+      const savedHaptics = localStorage.getItem(HAPTICS_KEY);
+      if (savedHaptics !== null) {
+        setHapticsEnabled(savedHaptics === "true");
+      }
+    }
+  }, []);
+
+  // Register service worker for PWA
+  useEffect(() => {
+    if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch((err) => {
+        console.log("SW registration failed:", err);
+      });
     }
   }, []);
 
@@ -63,16 +92,16 @@ export default function Home() {
     if (lastSettlement) {
       if (lastSettlement.won) {
         sounds.win();
-        haptics.success();
+        if (hapticsEnabled) haptics.success();
       } else {
         sounds.loss();
-        haptics.error();
+        if (hapticsEnabled) haptics.error();
         setScreenShake(true);
         const timer = setTimeout(() => setScreenShake(false), 400);
         return () => clearTimeout(timer);
       }
     }
-  }, [lastSettlement]);
+  }, [lastSettlement, hapticsEnabled]);
 
   // Initialize FCL
   useEffect(() => {
@@ -100,6 +129,38 @@ export default function Home() {
     }
   }, []);
 
+  // Toggle sound
+  const toggleSound = useCallback(() => {
+    setSoundEnabled((prev) => {
+      const newValue = !prev;
+      sounds.setEnabled(newValue);
+      if (typeof window !== "undefined") {
+        localStorage.setItem(SOUND_KEY, String(newValue));
+      }
+      return newValue;
+    });
+  }, []);
+
+  // Toggle haptics
+  const toggleHaptics = useCallback(() => {
+    setHapticsEnabled((prev) => {
+      const newValue = !prev;
+      if (typeof window !== "undefined") {
+        localStorage.setItem(HAPTICS_KEY, String(newValue));
+      }
+      return newValue;
+    });
+  }, []);
+
+  // Reset onboarding
+  const resetOnboarding = useCallback(() => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(ONBOARDING_KEY);
+    }
+    setShowSettings(false);
+    setShowOnboarding(true);
+  }, []);
+
   // Place bet handler
   const handlePlaceBet = useCallback(
     async (row: number, col: number, amount: number) => {
@@ -110,12 +171,12 @@ export default function Home() {
 
       if (oracleSnapshot?.isStale) {
         console.warn("Oracle stale - betting paused");
-        haptics.warning();
+        if (hapticsEnabled) haptics.warning();
         return;
       }
 
       // Feedback
-      haptics.tap();
+      if (hapticsEnabled) haptics.tap();
       sounds.bet();
 
       const localBet = addLocalBet(row, col, amount, currentPrice);
@@ -131,15 +192,15 @@ export default function Home() {
           sounds.coin();
         } else {
           failBet(localBet.id);
-          haptics.error();
+          if (hapticsEnabled) haptics.error();
         }
       } catch (error) {
         console.error("Failed to place bet:", error);
         failBet(localBet.id);
-        haptics.error();
+        if (hapticsEnabled) haptics.error();
       }
     },
-    [user, oracleSnapshot, addLocalBet, confirmBet, failBet, currentPrice]
+    [user, oracleSnapshot, addLocalBet, confirmBet, failBet, currentPrice, hapticsEnabled]
   );
 
   // Stack bet handler
@@ -148,7 +209,7 @@ export default function Home() {
       if (!user || !bet.positionId) return;
       if (oracleSnapshot?.isStale) return;
 
-      haptics.tap();
+      if (hapticsEnabled) haptics.tap();
       sounds.coin();
       stackBet(bet, additionalAmount);
 
@@ -164,13 +225,13 @@ export default function Home() {
         addLocalBet(bet.row, bet.col, bet.amount - additionalAmount, currentPrice);
       }
     },
-    [user, oracleSnapshot, stackBet, removeBet, addLocalBet, currentPrice]
+    [user, oracleSnapshot, stackBet, removeBet, addLocalBet, currentPrice, hapticsEnabled]
   );
 
   // Cancel bet handler
   const handleCancelBet = useCallback(
     async (bet: LocalBet) => {
-      haptics.press();
+      if (hapticsEnabled) haptics.press();
       sounds.cancel();
 
       if (!user || !bet.positionId) {
@@ -187,7 +248,7 @@ export default function Home() {
         console.error("Failed to cancel:", error);
       }
     },
-    [user, removeBet]
+    [user, removeBet, hapticsEnabled]
   );
 
   const handleAuthSuccess = useCallback(() => {
@@ -196,23 +257,16 @@ export default function Home() {
   }, [checkAuth]);
 
   const handleConnectClick = useCallback(() => {
-    haptics.tap();
+    if (hapticsEnabled) haptics.tap();
     sounds.click();
     setShowAuthModal(true);
-  }, []);
+  }, [hapticsEnabled]);
 
   const handleBidSizeChange = useCallback((size: number) => {
-    haptics.tap();
+    if (hapticsEnabled) haptics.tap();
     sounds.click();
     setBidSize(size);
-  }, [setBidSize]);
-
-  const toggleSound = useCallback(() => {
-    setSoundEnabled((prev) => {
-      sounds.setEnabled(!prev);
-      return !prev;
-    });
-  }, []);
+  }, [setBidSize, hapticsEnabled]);
 
   if (authLoading) {
     return (
@@ -231,7 +285,11 @@ export default function Home() {
         oracleSnapshot={oracleSnapshot}
         oracleLoading={oracleLoading}
         onConnectClick={handleConnectClick}
-        onSettingsClick={toggleSound}
+        onSettingsClick={() => {
+          if (hapticsEnabled) haptics.tap();
+          sounds.click();
+          setShowSettings(true);
+        }}
         soundEnabled={soundEnabled}
       />
 
@@ -257,12 +315,12 @@ export default function Home() {
         oracleStale={oracleSnapshot?.isStale || false}
         onConnectClick={handleConnectClick}
         onHistoryClick={() => {
-          haptics.tap();
+          if (hapticsEnabled) haptics.tap();
           sounds.click();
-          setShowHistory(true);
+          setShowStats(true);
         }}
         onLeaderboardClick={() => {
-          haptics.tap();
+          if (hapticsEnabled) haptics.tap();
           sounds.click();
           setShowLeaderboard(true);
         }}
@@ -276,14 +334,11 @@ export default function Home() {
         onSuccess={handleAuthSuccess}
       />
 
-      {/* Position History */}
-      <PositionHistory
-        isOpen={showHistory}
-        onClose={() => setShowHistory(false)}
+      {/* Stats Dashboard (replaces simple history) */}
+      <StatsDashboard
+        isOpen={showStats}
+        onClose={() => setShowStats(false)}
         positions={history}
-        totalWins={historyStats.totalWins}
-        totalLosses={historyStats.totalLosses}
-        netProfit={historyStats.netProfit}
       />
 
       {/* Leaderboard */}
@@ -291,6 +346,21 @@ export default function Home() {
         isOpen={showLeaderboard}
         onClose={() => setShowLeaderboard(false)}
         currentUserAddress={user?.address}
+      />
+
+      {/* Settings */}
+      <Settings
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        soundEnabled={soundEnabled}
+        onSoundToggle={toggleSound}
+        hapticsEnabled={hapticsEnabled}
+        onHapticsToggle={toggleHaptics}
+        onResetOnboarding={resetOnboarding}
+        onResetHistory={() => {
+          clearHistory?.();
+          setShowSettings(false);
+        }}
       />
 
       {/* Onboarding Tutorial */}

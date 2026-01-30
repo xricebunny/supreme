@@ -257,6 +257,11 @@ export const useGameState = () => {
     netProfit: history.reduce((acc, p) => acc + (p.won ? p.payout - p.stake : -p.stake), 0),
   };
 
+  // Clear history
+  const clearHistory = useCallback(() => {
+    setHistory([]);
+  }, []);
+
   return {
     priceHistory,
     currentPrice,
@@ -275,6 +280,7 @@ export const useGameState = () => {
     historyStats,
     lastSettlement,
     clearLastSettlement: () => setLastSettlement(null),
+    clearHistory,
   };
 };
 
