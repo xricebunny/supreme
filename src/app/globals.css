@@ -5,22 +5,33 @@
 @tailwind utilities;
 
 :root {
-  --bg-primary: #1a0a20;
-  --bg-secondary: #2d1f3d;
-  --bg-tertiary: #3d2a50;
-  --border-grid: #3d2a50;
-  
-  --pink-primary: #d946ef;
-  --pink-glow: rgba(217, 70, 239, 0.5);
-  --pink-dim: rgba(217, 70, 239, 0.15);
-  
-  --yellow-bet: #e8e855;
-  --yellow-border: #f0f070;
-  --yellow-glow: rgba(232, 232, 85, 0.4);
-  
-  --purple-accent: #a78bfa;
-  --text-muted: #6b5280;
-  --text-dim: #4b5563;
+  /* Dark background with green tint */
+  --bg-primary: #0a0f0d;
+  --bg-secondary: #111a16;
+  --bg-tertiary: #1a2721;
+  --border-grid: #1e3329;
+
+  /* Neon green primary */
+  --neon-primary: #00ff88;
+  --neon-glow: rgba(0, 255, 136, 0.5);
+  --neon-dim: rgba(0, 255, 136, 0.15);
+
+  /* Cyan accent for bets */
+  --cyan-bet: #00e5ff;
+  --cyan-border: #40efff;
+  --cyan-glow: rgba(0, 229, 255, 0.4);
+
+  /* Legacy aliases for compatibility */
+  --pink-primary: var(--neon-primary);
+  --pink-glow: var(--neon-glow);
+  --pink-dim: var(--neon-dim);
+  --yellow-bet: var(--cyan-bet);
+  --yellow-border: var(--cyan-border);
+  --yellow-glow: var(--cyan-glow);
+
+  --purple-accent: #00ff88;
+  --text-muted: #4a7a66;
+  --text-dim: #3d5c4d;
 }
 
 * {
