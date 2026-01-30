@@ -22,7 +22,7 @@ export default function GameHeader({
   soundEnabled = true,
 }: GameHeaderProps) {
   return (
-    <div style={{ background: "#1a0a20" }}>
+    <div style={{ background: "#0a0f0d" }}>
       {/* Brand */}
       <div className="px-4 pt-3 pb-1">
         <h1
@@ -43,7 +43,7 @@ export default function GameHeader({
         {/* Current price pill */}
         <div
           className="flex items-center gap-2 px-4 py-2 rounded-full"
-          style={{ background: "#2d1f3d" }}
+          style={{ background: "#111a16" }}
         >
           <span style={{ color: "#a78bfa", fontSize: 16 }}>◆</span>
           <span className="text-lg font-semibold text-white">
@@ -61,7 +61,7 @@ export default function GameHeader({
               className={`text-xs px-2 py-1 rounded-full ${
                 oracleSnapshot.isStale ? "oracle-stale" : "oracle-live"
               }`}
-              style={{ background: "#2d1f3d" }}
+              style={{ background: "#111a16" }}
             >
               {oracleSnapshot.isStale ? "⚠️ Stale" : "✓ Live"}
             </div>

@@ -57,10 +57,10 @@ Risky (far from price):   4.0x - 5.0x+
 ## Screenshots
 
 The grid shows:
-- **Y-axis**: Price levels ($3818-$3823)
+- **Y-axis**: FLOW price levels ($0.50-$1.00)
 - **X-axis**: Time progression
-- **Pink line**: Current market price
-- **Yellow cells**: Your active bets
+- **Neon green line**: Current market price
+- **Cyan cells**: Your active bets
 
 ## Tech Stack
 
@@ -122,14 +122,15 @@ public/
 
 | Element | Color | Hex |
 |---------|-------|-----|
-| Background | Dark purple | `#1a0a20` |
-| Secondary | Mid purple | `#2d1f3d` |
-| Grid lines | Light purple | `#3d2a50` |
-| Price line | Pink/magenta | `#d946ef` |
-| Bet cells | Yellow | `#e8e855` |
+| Background | Dark green-black | `#0a0f0d` |
+| Secondary | Dark teal | `#111a16` |
+| Tertiary | Forest | `#1a2721` |
+| Grid lines | Green border | `#1e3329` |
+| Price line | Neon green | `#00ff88` |
+| Bet cells | Cyan | `#00e5ff` |
 | Win | Green | `#22c55e` |
 | Loss | Red | `#ef4444` |
-| Muted text | Purple | `#6b5280` |
+| Muted text | Sage | `#4a7a66` |
 
 ## On-chain Architecture
 

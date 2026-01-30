@@ -19,7 +19,7 @@ interface ConfettiProps {
   onComplete?: () => void;
 }
 
-const COLORS = ["#d946ef", "#e8e855", "#22c55e", "#3b82f6", "#f97316", "#a78bfa"];
+const COLORS = ["#00ff88", "#00e5ff", "#22c55e", "#40efff", "#00ffaa", "#88ffcc"];
 const PARTICLE_COUNT = 50;
 
 export default function Confetti({ active, onComplete }: ConfettiProps) {

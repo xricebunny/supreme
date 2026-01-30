@@ -34,12 +34,12 @@ export default function BottomControls({
   };
 
   return (
-    <div className="p-3" style={{ background: "#1a0a20" }}>
+    <div className="p-3" style={{ background: "#0a0f0d" }}>
       {/* Stale warning */}
       {oracleStale && (
         <div
           className="text-xs text-center mb-2 py-1 px-3 rounded"
-          style={{ background: "#2d1f3d", color: "#ef4444" }}
+          style={{ background: "#111a16", color: "#ef4444" }}
         >
           ⚠️ Oracle stale - betting paused
         </div>
@@ -103,7 +103,7 @@ export default function BottomControls({
       {/* Instructions */}
       <div
         className="flex justify-center gap-4 text-xs mt-2"
-        style={{ color: "#6b5280" }}
+        style={{ color: "#4a7a66" }}
       >
         <span>👆 Tap to bet</span>
         <span>👇 Hold to cancel</span>

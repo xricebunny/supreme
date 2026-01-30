@@ -100,8 +100,8 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
               <button
                 className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
                   authMethod === "magic"
-                    ? "bg-[#d946ef] text-white"
-                    : "bg-[#2d1f3d] text-gray-400 hover:text-white"
+                    ? "bg-[#00ff88] text-white"
+                    : "bg-[#111a16] text-gray-400 hover:text-white"
                 }`}
                 onClick={() => setAuthMethod("magic")}
               >
@@ -110,8 +110,8 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
               <button
                 className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
                   authMethod === "fcl"
-                    ? "bg-[#d946ef] text-white"
-                    : "bg-[#2d1f3d] text-gray-400 hover:text-white"
+                    ? "bg-[#00ff88] text-white"
+                    : "bg-[#111a16] text-gray-400 hover:text-white"
                 }`}
                 onClick={() => setAuthMethod("fcl")}
               >
@@ -131,7 +131,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="Enter your email"
-                    className="w-full px-4 py-3 bg-[#1a0a20] border border-[#3d2a50] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-[#d946ef] transition-colors"
+                    className="w-full px-4 py-3 bg-[#0a0f0d] border border-[#1e3329] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-[#00ff88] transition-colors"
                   />
                 </div>
 
@@ -193,19 +193,19 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
 
                 {/* Wallet Options */}
                 <div className="grid grid-cols-2 gap-3 mt-4">
-                  <button className="flex items-center gap-2 p-3 bg-[#1a0a20] border border-[#3d2a50] rounded-lg hover:border-[#d946ef] transition-colors">
+                  <button className="flex items-center gap-2 p-3 bg-[#0a0f0d] border border-[#1e3329] rounded-lg hover:border-[#00ff88] transition-colors">
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-500" />
                     <span className="text-sm text-white">Blocto</span>
                   </button>
-                  <button className="flex items-center gap-2 p-3 bg-[#1a0a20] border border-[#3d2a50] rounded-lg hover:border-[#d946ef] transition-colors">
+                  <button className="flex items-center gap-2 p-3 bg-[#0a0f0d] border border-[#1e3329] rounded-lg hover:border-[#00ff88] transition-colors">
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-500 to-teal-500" />
                     <span className="text-sm text-white">Lilico</span>
                   </button>
-                  <button className="flex items-center gap-2 p-3 bg-[#1a0a20] border border-[#3d2a50] rounded-lg hover:border-[#d946ef] transition-colors">
+                  <button className="flex items-center gap-2 p-3 bg-[#0a0f0d] border border-[#1e3329] rounded-lg hover:border-[#00ff88] transition-colors">
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-yellow-500 to-orange-500" />
                     <span className="text-sm text-white">Dapper</span>
                   </button>
-                  <button className="flex items-center gap-2 p-3 bg-[#1a0a20] border border-[#3d2a50] rounded-lg hover:border-[#d946ef] transition-colors">
+                  <button className="flex items-center gap-2 p-3 bg-[#0a0f0d] border border-[#1e3329] rounded-lg hover:border-[#00ff88] transition-colors">
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 to-red-500" />
                     <span className="text-sm text-white">Flow Wallet</span>
                   </button>

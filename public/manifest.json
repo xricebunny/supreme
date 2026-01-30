@@ -4,8 +4,8 @@
   "description": "Turn price prediction into a visual game. Place bets on a grid, watch the price move, win when it hits.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#1a0a20",
-  "theme_color": "#d946ef",
+  "background_color": "#0a0f0d",
+  "theme_color": "#00ff88",
   "orientation": "portrait",
   "icons": [
     {

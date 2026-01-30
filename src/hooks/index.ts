@@ -45,7 +45,7 @@ export const useAuth = () => {
 // Game state hook
 export const useGameState = () => {
   const [priceHistory, setPriceHistory] = useState<PricePoint[]>([]);
-  const [currentPrice, setCurrentPrice] = useState(3820.63);
+  const [currentPrice, setCurrentPrice] = useState(0.756);
   const [bets, setBets] = useState<LocalBet[]>([]);
   const [bidSize, setBidSize] = useState(10);
   const [balance, setBalance] = useState(30.93);
@@ -53,29 +53,29 @@ export const useGameState = () => {
   const [lastSettlement, setLastSettlement] = useState<{ won: boolean; payout: number } | null>(null);
   const settlementTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Initialize price
+  // Initialize price (FLOW token ~$0.50-$1.00)
   useEffect(() => {
     const pts: PricePoint[] = [];
-    let p = 3821.2;
+    let p = 0.76;
     for (let i = 0; i < 35; i++) {
-      p += (Math.random() - 0.52) * 0.25;
-      p = Math.max(3818.5, Math.min(3823.5, p));
-      pts.push({ x: i, y: p - 3818 });
+      p += (Math.random() - 0.52) * 0.015;
+      p = Math.max(0.50, Math.min(1.00, p));
+      pts.push({ x: i, y: (p - 0.50) * 10 }); // Scale for visual display
     }
     setPriceHistory(pts);
     setCurrentPrice(p);
   }, []);
 
-  // Animate price
+  // Animate price (FLOW token)
   useEffect(() => {
     const iv = setInterval(() => {
       setPriceHistory((prev) => {
         if (prev.length === 0) return prev;
         const last = prev[prev.length - 1];
-        let newP = last.y + 3818 + (Math.random() - 0.5) * 0.18;
-        newP = Math.max(3818.5, Math.min(3823.5, newP));
+        let newP = last.y / 10 + 0.50 + (Math.random() - 0.5) * 0.012;
+        newP = Math.max(0.50, Math.min(1.00, newP));
         setCurrentPrice(newP);
-        return [...prev.slice(-50), { x: last.x + 1, y: newP - 3818 }];
+        return [...prev.slice(-50), { x: last.x + 1, y: (newP - 0.50) * 10 }];
       });
     }, 180);
     return () => clearInterval(iv);
@@ -91,8 +91,8 @@ export const useGameState = () => {
 
   // Hit detection and auto-settlement
   useEffect(() => {
-    const BASE = 3820.0;
-    const STEP = 0.5;
+    const BASE = 0.75;
+    const STEP = 0.035;
     const ROWS = 14;
 
     let row = 0;
@@ -144,7 +144,7 @@ export const useGameState = () => {
             row: current.row,
             col: current.col,
             multiplier: current.multiplier || "1.5",
-            entryPrice: current.entryPrice || 3820.5,
+            entryPrice: current.entryPrice || 0.75,
             exitPrice: currentPrice,
             won,
             payout,
@@ -175,8 +175,8 @@ export const useGameState = () => {
   }, [bets, currentPrice]);
 
   const addLocalBet = useCallback((row: number, col: number, amount: number, price: number): LocalBet => {
-    const BASE = 3820.0;
-    const STEP = 0.5;
+    const BASE = 0.75;
+    const STEP = 0.035;
     const ROWS = 14;
     let priceRow = 0;
     for (let i = 0; i < ROWS; i++) {
@@ -292,7 +292,7 @@ export const useOracle = (pollInterval = 5000) => {
   const fetch = useCallback(async () => {
     try {
       const mock: OracleSnapshot = {
-        price: 3820.5 + Math.random() * 2,
+        price: 0.75 + Math.random() * 0.1,
         updatedAtBlock: 1000000,
         currentBlock: 1000000 + Math.floor(Math.random() * 30),
         isStale: false,

@@ -270,14 +270,14 @@ export default function Home() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: "#1a0a20" }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "#0a0f0d" }}>
         <div className="spinner" style={{ width: 40, height: 40 }} />
       </div>
     );
   }
 
   return (
-    <div className={`min-h-screen flex flex-col select-none ${screenShake ? "screen-shake" : ""}`} style={{ background: "#1a0a20" }}>
+    <div className={`min-h-screen flex flex-col select-none ${screenShake ? "screen-shake" : ""}`} style={{ background: "#0a0f0d" }}>
       {/* Header */}
       <GameHeader
         user={user}

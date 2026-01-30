@@ -14,13 +14,13 @@ const MOCK_LEADERBOARD: LeaderboardEntry[] = [
   { rank: 1, name: "CryptoWhale", balance: 2847.50, color: "#FFD700" },
   { rank: 2, name: "FlowMaster", balance: 1923.25, color: "#C0C0C0" },
   { rank: 3, name: "GridKing", balance: 1456.80, color: "#CD7F32" },
-  { rank: 4, name: "BetQueen", balance: 987.45, color: "#d946ef" },
-  { rank: 5, name: "LuckyTrader", balance: 756.20, color: "#22c55e" },
-  { rank: 6, name: "PriceHunter", balance: 623.15, color: "#3b82f6" },
-  { rank: 7, name: "GridNinja", balance: 498.90, color: "#f97316" },
-  { rank: 8, name: "FlowRider", balance: 412.35, color: "#a78bfa" },
-  { rank: 9, name: "BullRunner", balance: 345.60, color: "#22c55e" },
-  { rank: 10, name: "ChartMaster", balance: 287.25, color: "#ec4899" },
+  { rank: 4, name: "BetQueen", balance: 987.45, color: "#00ff88" },
+  { rank: 5, name: "LuckyTrader", balance: 756.20, color: "#00e5ff" },
+  { rank: 6, name: "PriceHunter", balance: 623.15, color: "#00ffaa" },
+  { rank: 7, name: "GridNinja", balance: 498.90, color: "#40efff" },
+  { rank: 8, name: "FlowRider", balance: 412.35, color: "#88ffcc" },
+  { rank: 9, name: "BullRunner", balance: 345.60, color: "#00ff88" },
+  { rank: 10, name: "ChartMaster", balance: 287.25, color: "#00e5ff" },
 ];
 
 type TimeFilter = "daily" | "weekly" | "allTime";
@@ -108,7 +108,7 @@ export default function Leaderboard({
                   {getRankIcon(entry.rank)}
                 </div>
                 <div className="lb-info">
-                  <div className="lb-name" style={{ color: entry.isCurrentUser ? "#d946ef" : undefined }}>
+                  <div className="lb-name" style={{ color: entry.isCurrentUser ? "#00ff88" : undefined }}>
                     {entry.name}
                     {entry.isCurrentUser && <span className="lb-you-badge">YOU</span>}
                   </div>

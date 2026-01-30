@@ -20,8 +20,8 @@ const COLS = 6;
 const CELL_W = 56;
 const CELL_H = 38;
 const HOLD_MS = 500;
-const PRICE_STEP = 0.5;
-const BASE_PRICE = 3820.0;
+const PRICE_STEP = 0.035;
+const BASE_PRICE = 0.75;
 
 export default function GameGrid({
   bets,
@@ -188,7 +188,7 @@ export default function GameGrid({
 
     return priceHistory.slice(-45).map((pt, i) => {
       const x = 42 + i * 6;
-      const price = pt.y + 3818;
+      const price = pt.y / 10 + 0.50; // Convert from scaled visual value back to price
       const y = h - ((price - minP) / range) * h;
       return i === 0 ? `M ${x} ${y}` : `L ${x} ${y}`;
     }).join(" ");
@@ -219,7 +219,7 @@ export default function GameGrid({
               className="flex items-center justify-end pr-1 text-xs font-medium"
               style={{
                 height: CELL_H,
-                color: i === priceRow ? "#d946ef" : "#6b5280",
+                color: i === priceRow ? "#00ff88" : "#4a7a66",
               }}
             >
               {p.toFixed(1)}
@@ -240,7 +240,7 @@ export default function GameGrid({
           <div
             className="absolute inset-0 pointer-events-none"
             style={{
-              backgroundImage: `linear-gradient(to right, #3d2a50 1px, transparent 1px), linear-gradient(to bottom, #3d2a50 1px, transparent 1px)`,
+              backgroundImage: `linear-gradient(to right, #1e3329 1px, transparent 1px), linear-gradient(to bottom, #1e3329 1px, transparent 1px)`,
               backgroundSize: `${CELL_W}px ${CELL_H}px`,
             }}
           />
@@ -329,7 +329,7 @@ export default function GameGrid({
       {/* X-axis - time */}
       <div className="flex" style={{ marginLeft: 42, marginTop: 4 }}>
         {timeLabels.slice(0, COLS).map((t, i) => (
-          <div key={i} className="text-xs text-center" style={{ width: CELL_W, color: "#6b5280" }}>
+          <div key={i} className="text-xs text-center" style={{ width: CELL_W, color: "#4a7a66" }}>
             {t}
           </div>
         ))}
