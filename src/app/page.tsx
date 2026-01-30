@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { GameGrid, GameHeader, BottomControls, AuthModal } from "@/components";
+import { GameGrid, GameHeader, BottomControls, AuthModal, Confetti, PositionHistory } from "@/components";
 import { useAuth, useGameState, useOracle } from "@/hooks";
 import { logout } from "@/lib/magic";
 import { initFCL, openPosition, cancelPosition } from "@/lib/flow";
@@ -21,10 +21,25 @@ export default function Home() {
     failBet,
     stackBet,
     removeBet,
+    history,
+    historyStats,
+    lastSettlement,
+    clearLastSettlement,
   } = useGameState();
   const { snapshot: oracleSnapshot, loading: oracleLoading } = useOracle();
 
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [screenShake, setScreenShake] = useState(false);
+
+  // Screen shake on loss
+  useEffect(() => {
+    if (lastSettlement && !lastSettlement.won) {
+      setScreenShake(true);
+      const timer = setTimeout(() => setScreenShake(false), 400);
+      return () => clearTimeout(timer);
+    }
+  }, [lastSettlement]);
 
   // Initialize FCL
   useEffect(() => {
@@ -57,7 +72,7 @@ export default function Home() {
         return;
       }
 
-      const localBet = addLocalBet(row, col, amount);
+      const localBet = addLocalBet(row, col, amount, currentPrice);
 
       try {
         const result = await openPosition(row, col, amount);
@@ -75,7 +90,7 @@ export default function Home() {
         failBet(localBet.id);
       }
     },
-    [user, oracleSnapshot, addLocalBet, confirmBet, failBet]
+    [user, oracleSnapshot, addLocalBet, confirmBet, failBet, currentPrice]
   );
 
   // Stack bet handler
