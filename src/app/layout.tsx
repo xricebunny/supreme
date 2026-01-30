@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Grid Bet - Flow Blockchain Game",
-  description: "A visual options trading game built on Flow blockchain with Magic.link authentication",
+  title: "Supreme",
+  description: "A visual price prediction trading game built on Flow",
 };
 
 export default function RootLayout({

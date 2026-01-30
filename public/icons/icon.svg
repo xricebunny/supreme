@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2d1f3d"/>
+      <stop offset="100%" style="stop-color:#1a0a20"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#d946ef"/>
+      <stop offset="100%" style="stop-color:#a855f7"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+
+  <!-- Grid lines -->
+  <g stroke="#3d2a50" stroke-width="2" opacity="0.5">
+    <line x1="128" y1="96" x2="128" y2="416"/>
+    <line x1="256" y1="96" x2="256" y2="416"/>
+    <line x1="384" y1="96" x2="384" y2="416"/>
+    <line x1="64" y1="176" x2="448" y2="176"/>
+    <line x1="64" y1="256" x2="448" y2="256"/>
+    <line x1="64" y1="336" x2="448" y2="336"/>
+  </g>
+
+  <!-- Price line -->
+  <path d="M 64 300 Q 150 280, 200 320 T 320 240 T 448 280"
+        stroke="url(#accent)"
+        stroke-width="6"
+        fill="none"
+        stroke-linecap="round"/>
+
+  <!-- Bet cell -->
+  <rect x="280" y="200" width="56" height="48" rx="8" fill="#e8e855"/>
+
+  <!-- S letter -->
+  <text x="256" y="460"
+        font-family="Georgia, serif"
+        font-size="48"
+        font-weight="bold"
+        font-style="italic"
+        fill="white"
+        text-anchor="middle">
+    Supreme
+  </text>
+</svg>
