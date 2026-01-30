@@ -241,6 +241,22 @@ export const useGameState = () => {
     if (won) setBalance((b) => b + payout);
   }, []);
 
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (settlementTimeoutRef.current) {
+        clearTimeout(settlementTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Calculate history stats
+  const historyStats = {
+    totalWins: history.filter((p) => p.won).length,
+    totalLosses: history.filter((p) => !p.won).length,
+    netProfit: history.reduce((acc, p) => acc + (p.won ? p.payout - p.stake : -p.stake), 0),
+  };
+
   return {
     priceHistory,
     currentPrice,
@@ -255,6 +271,10 @@ export const useGameState = () => {
     stackBet,
     removeBet,
     settleBet,
+    history,
+    historyStats,
+    lastSettlement,
+    clearLastSettlement: () => setLastSettlement(null),
   };
 };
 
