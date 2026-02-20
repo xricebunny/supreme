@@ -6,32 +6,28 @@
       <stop offset="100%" style="stop-color:#0a0f0d"/>
     </linearGradient>
 
-    <!-- Accent gradient following the S diagonal (bottom-left green → top-right cyan) -->
+    <!--
+      Main accent: flows bottom-left (green) → top-right (cyan)
+      anchored to the full extent of the mark including both arrow tips
+    -->
     <linearGradient id="accent" gradientUnits="userSpaceOnUse"
-                    x1="136" y1="368" x2="376" y2="108">
+                    x1="126" y1="358" x2="386" y2="128">
       <stop offset="0%"   style="stop-color:#00ff88"/>
       <stop offset="100%" style="stop-color:#00e5ff"/>
     </linearGradient>
 
-    <!-- Soft glow around the S mark -->
-    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
-      <feGaussianBlur stdDeviation="9" result="blur"/>
+    <!-- Darker shadow version of the accent for the outline layer -->
+    <linearGradient id="accentShadow" gradientUnits="userSpaceOnUse"
+                    x1="126" y1="358" x2="386" y2="128">
+      <stop offset="0%"   style="stop-color:#004422"/>
+      <stop offset="100%" style="stop-color:#004455"/>
+    </linearGradient>
+
+    <!-- Glow bloom -->
+    <filter id="glow" x="-45%" y="-45%" width="190%" height="190%">
+      <feGaussianBlur stdDeviation="11" result="blur"/>
       <feMerge>
         <feMergeNode in="blur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
-
-    <!-- Stronger ambient glow for the composite mark -->
-    <filter id="ambientGlow" x="-60%" y="-60%" width="220%" height="220%">
-      <feGaussianBlur stdDeviation="22" result="blur"/>
-      <feColorMatrix in="blur" type="matrix"
-        values="0 0 0 0 0
-                0 1 0 0 0.8
-                0 0 0 0 0.4
-                0 0 0 0.4 0" result="coloredBlur"/>
-      <feMerge>
-        <feMergeNode in="coloredBlur"/>
         <feMergeNode in="SourceGraphic"/>
       </feMerge>
     </filter>
@@ -39,43 +35,56 @@
 
   <!-- ── Background ── -->
   <rect width="512" height="512" rx="88" fill="url(#bg)"/>
-
-  <!-- Subtle inner border ring -->
   <rect x="14" y="14" width="484" height="484" rx="78"
-        fill="none" stroke="#1e3a28" stroke-width="1.5" opacity="0.6"/>
+        fill="none" stroke="#1e3a28" stroke-width="1.5" opacity="0.55"/>
 
-  <!-- ── S curve ── -->
   <!--
-    Path traces from bottom-left terminal to top-right terminal.
-    Segment 1 (lower arc):  (180,368) → bulges RIGHT → midpoint (256,238)
-    Segment 2 (upper arc):  (256,238) → bulges LEFT  → (332,108)
-    This produces a clean, symmetric S with 76 px of x-offset on each side.
+    ── S mark ──
+    Path: bottom-left terminal (206,358) → wide sweeping lower arc bulging RIGHT
+          → midpoint (256,244) → wide sweeping upper arc bulging LEFT
+          → top-right terminal (306,128)
+
+    Strong horizontal tangents at both ends give the flat-bottom / flat-top
+    "Superman S" character.  Stroke-width 64 px for thick, heroic weight.
+
+    Bottom-left arrow: tip (126,358) — points LEFT   (outward from S bottom)
+    Top-right arrow:   tip (386,128) — points RIGHT  (outward from S top)
   -->
-  <g filter="url(#ambientGlow)">
-    <path d="M 180,368
-             C 326,368 342,238 256,238
-             C 162,238 186,108 332,108"
-          stroke="url(#accent)"
-          stroke-width="34"
-          fill="none"
-          stroke-linecap="butt"
-          filter="url(#glow)"/>
 
-    <!-- Bottom-left arrowhead — tip points LEFT (outward from S bottom) -->
-    <!-- Base aligns with path start at x=180; tip at x=136 -->
-    <polygon points="136,368  180,344  180,392"
-             fill="url(#accent)"
-             filter="url(#glow)"/>
+  <!-- ① Dark outline layer (gives edge definition / depth) -->
+  <path d="M 206,358
+           C 420,358 386,244 256,244
+           C 124,244  92,128 306,128"
+        stroke="url(#accentShadow)"
+        stroke-width="78"
+        fill="none"
+        stroke-linecap="butt"/>
+  <!-- outline arrowheads (4 px larger on every side than main) -->
+  <polygon points="122,358  206,318  206,398" fill="#004422"/>
+  <polygon points="390,128  306, 88  306,168" fill="#004455"/>
 
-    <!-- Top-right arrowhead — tip points RIGHT (outward from S top) -->
-    <!-- Base aligns with path end at x=332; tip at x=376 -->
-    <polygon points="376,108  332,84  332,132"
-             fill="url(#accent)"
-             filter="url(#glow)"/>
-  </g>
+  <!-- ② Bright main stroke + arrowheads (with glow) -->
+  <path d="M 206,358
+           C 420,358 386,244 256,244
+           C 124,244  92,128 306,128"
+        stroke="url(#accent)"
+        stroke-width="64"
+        fill="none"
+        stroke-linecap="butt"
+        filter="url(#glow)"/>
+
+  <!-- Bottom-left arrowhead: base flush with stroke end at x=206, tip at x=126 -->
+  <polygon points="126,358  206,326  206,390"
+           fill="url(#accent)"
+           filter="url(#glow)"/>
+
+  <!-- Top-right arrowhead: base flush with stroke end at x=306, tip at x=386 -->
+  <polygon points="386,128  306, 96  306,160"
+           fill="url(#accent)"
+           filter="url(#glow)"/>
 
   <!-- ── Wordmark ── -->
-  <text x="256" y="462"
+  <text x="256" y="464"
         font-family="Georgia, serif"
         font-size="44"
         font-weight="bold"
