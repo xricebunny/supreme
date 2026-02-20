@@ -11,11 +11,13 @@ const SLOT_MS = 5000; // 5 seconds per time slot
  */
 export function useAnimationTime(cellWidth: number): {
   timeSlot: number;
+  baseTimeMs: number;
   gridRef: RefObject<HTMLDivElement>;
   xAxisRef: RefObject<HTMLDivElement>;
 } {
   const [timeSlot, setTimeSlot] = useState(0);
-  const startRef = useRef(performance.now());
+  // Wall-clock time floored to the nearest 5-second boundary at mount
+  const baseTimeMsRef = useRef(Math.floor(Date.now() / SLOT_MS) * SLOT_MS);
   const gridRef = useRef<HTMLDivElement>(null);
   const xAxisRef = useRef<HTMLDivElement>(null);
   const cellWidthRef = useRef(cellWidth);
@@ -26,7 +28,8 @@ export function useAnimationTime(cellWidth: number): {
     let prevSlot = 0;
 
     const animate = () => {
-      const elapsed = performance.now() - startRef.current;
+      // Use wall-clock time so rAF panning and label boundaries stay in sync
+      const elapsed = Date.now() - baseTimeMsRef.current;
       const slot = Math.floor(elapsed / SLOT_MS);
       const progress = (elapsed % SLOT_MS) / SLOT_MS;
       const panX = progress * cellWidthRef.current;
@@ -52,5 +55,5 @@ export function useAnimationTime(cellWidth: number): {
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return { timeSlot, gridRef, xAxisRef };
+  return { timeSlot, baseTimeMs: baseTimeMsRef.current, gridRef, xAxisRef };
 }
