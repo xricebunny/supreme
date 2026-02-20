@@ -13,7 +13,6 @@ export default function TradePage() {
     betSize,
     setBetSize,
     timeSlot,
-    timeSlotProgress,
   } = useGameState(currentPrice, tickIndex);
 
   return (
@@ -43,9 +42,7 @@ export default function TradePage() {
           currentPrice={currentPrice}
           tickIndex={tickIndex}
           betSize={betSize}
-          priceHistory={priceHistory}
           timeSlot={timeSlot}
-          timeSlotProgress={timeSlotProgress}
         />
       </div>
 

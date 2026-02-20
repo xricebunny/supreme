@@ -1,166 +1,123 @@
 "use client";
 
-import { useMemo, useRef, useEffect } from "react";
+import { useMemo } from "react";
 import { formatPayout, formatTime } from "@/lib/formatters";
 import { getMultiplier, getCellPayout } from "@/lib/multiplier";
-import PriceLine from "./PriceLine";
+import { useAnimationTime } from "@/hooks/useAnimationTime";
 
 const GRID_ROWS = 10;
 const GRID_COLS = 21;
 const CELL_WIDTH = 72;
 const CELL_HEIGHT = 56;
 const PRICE_STEP = 0.00005;
-const CURRENT_TIME_COL = 5; // pinned at column 6 (0-indexed)
-const CLIP_FRACTION = 0.33; // top/bottom rows clipped by ~1/3
+const CURRENT_TIME_COL = 5;
+const CLIP_FRACTION = 0.33;
+const SLOT_DURATION_MS = 5000;
 
 interface GameGridProps {
   currentPrice: number;
   tickIndex: number;
   betSize: number;
-  priceHistory: { timestamp: number; price: number }[];
   timeSlot: number;
-  timeSlotProgress: number;
 }
 
 export default function GameGrid({
   currentPrice,
-  tickIndex,
   betSize,
-  priceHistory,
   timeSlot,
-  timeSlotProgress,
 }: GameGridProps) {
-  // Grid dimensions
+  // rAF-driven elapsed time for smooth 60fps pan.
+  // This is the only correct way to get truly infinite scrolling:
+  // panX goes 0→72px over exactly 5000ms, and at 72px the grid lines
+  // are visually identical to 0px (they tile at CELL_WIDTH), so the
+  // reset is completely seamless with no snap-back.
+  const elapsedMs = useAnimationTime();
+  const slotProgress = (elapsedMs % SLOT_DURATION_MS) / SLOT_DURATION_MS;
+  // localTimeSlot updates at the exact same moment panX resets to 0
+  const localTimeSlot = Math.floor(elapsedMs / SLOT_DURATION_MS);
+
   const gridWidth = GRID_COLS * CELL_WIDTH;
   const gridHeight = GRID_ROWS * CELL_HEIGHT;
-
-  // Visible area clips top/bottom rows
   const clipTop = CELL_HEIGHT * CLIP_FRACTION;
-  const clipBottom = CELL_HEIGHT * CLIP_FRACTION;
-  const visibleHeight = gridHeight - clipTop - clipBottom;
+  const visibleHeight = gridHeight - clipTop * 2;
 
-  // Detect slot boundary so we can suppress the CSS transition for one frame.
-  // Without this, the transition animates the panX reset (0.8*72 → 0) backwards,
-  // making the grid visibly slide right at every slot change.
-  const prevTimeSlotRef = useRef(timeSlot);
-  const slotJustChanged = prevTimeSlotRef.current !== timeSlot;
-  useEffect(() => {
-    prevTimeSlotRef.current = timeSlot;
-  }, [timeSlot]);
+  // Horizontal pan: 0 → CELL_WIDTH over SLOT_DURATION_MS, then seamless reset
+  const panX = slotProgress * CELL_WIDTH;
 
-  // Horizontal pan: smooth transition within each 5-second slot
-  const panX = timeSlotProgress * CELL_WIDTH;
-
-  // Vertical pan: smooth as price moves between row boundaries
+  // Vertical pan: fractional row offset based on current price
   const priceInRowUnits = currentPrice / PRICE_STEP;
   const fractionalRow = priceInRowUnits % 1;
   const panY = fractionalRow * CELL_HEIGHT;
 
-  // Price for each row (current price is centered at row GRID_ROWS/2)
   const centerRow = Math.floor(GRID_ROWS / 2);
+
   const rowPrices = useMemo(() => {
     const prices: number[] = [];
     for (let r = 0; r < GRID_ROWS; r++) {
-      // Row 0 is highest price, row 9 is lowest
-      const rowOffset = centerRow - r;
-      prices.push(currentPrice + rowOffset * PRICE_STEP);
+      prices.push(currentPrice + (centerRow - r) * PRICE_STEP);
     }
     return prices;
   }, [currentPrice, centerRow]);
 
-  // Time labels: every OTHER column, starting from first visible
+  // Labels regenerate each slot. localTimeSlot changes at the exact frame
+  // where panX resets, so label positions stay in sync with the grid.
   const timeLabels = useMemo(() => {
     const labels: (string | null)[] = [];
     const now = new Date();
-    // Current time is at CURRENT_TIME_COL
     for (let c = 0; c < GRID_COLS; c++) {
-      const colOffset = c - CURRENT_TIME_COL;
-      const secondsOffset = colOffset * 5;
+      const secondsOffset = (c - CURRENT_TIME_COL) * 5;
       const time = new Date(now.getTime() + secondsOffset * 1000);
-      // Label every other column (even columns)
-      if (c % 2 === 0) {
-        labels.push(formatTime(time));
-      } else {
-        labels.push(null);
-      }
+      labels.push(c % 2 === 0 ? formatTime(time) : null);
     }
     return labels;
-    // Re-derive labels on each time slot change
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeSlot]);
+  }, [localTimeSlot]);
 
-  // Generate cell data
+  // Cells recompute every frame (slotProgress changes at 60fps).
+  // effectiveColDist shrinks toward 0 as the slot progresses, so rewards
+  // displayed in each cell decay in real-time as those cells approach "now".
   const cells = useMemo(() => {
     const result: {
       row: number;
       col: number;
       isPast: boolean;
       isCurrentTime: boolean;
-      isCurrentPrice: boolean;
-      rowDist: number;
       colDist: number;
-      multiplier: number;
       payout: number;
     }[] = [];
 
     for (let r = 0; r < GRID_ROWS; r++) {
       for (let c = 0; c < GRID_COLS; c++) {
-        const isPast = c < CURRENT_TIME_COL;
-        const isCurrentTime = c === CURRENT_TIME_COL;
-        const isCurrentPrice = r === centerRow;
-        const rowDist = Math.abs(r - centerRow);
         const colDist = c - CURRENT_TIME_COL;
+        const isPast = colDist < 0;
+        const isCurrentTime = colDist === 0;
+        const rowDist = Math.abs(r - centerRow);
 
-        // effectiveColDist accounts for how far we've progressed within the
-        // current slot. A cell 1 column away at 80% progress is only 0.2 slots
-        // away from "now", so its multiplier/payout should reflect that.
-        const effectiveColDist = colDist - timeSlotProgress;
+        // The effective future distance shrinks as we progress through the slot
+        const effectiveColDist = colDist - slotProgress;
 
-        let multiplier = 1;
         let payout = 0;
         if (effectiveColDist > 0) {
-          multiplier = getMultiplier(rowDist, effectiveColDist);
           payout = getCellPayout(betSize, rowDist, effectiveColDist);
         }
 
-        result.push({
-          row: r,
-          col: c,
-          isPast,
-          isCurrentTime,
-          isCurrentPrice,
-          rowDist,
-          colDist,
-          multiplier,
-          payout,
-        });
+        result.push({ row: r, col: c, isPast, isCurrentTime, colDist, payout });
       }
     }
     return result;
-  }, [betSize, centerRow, timeSlotProgress]);
-
-  // Suppress transition on slot boundary so the panX reset (e.g. 57px→0)
-  // doesn't animate backwards. Content (labels) also updates this frame, so
-  // the instant jump is seamless.
-  const panTransition = slotJustChanged ? "none" : "transform 0.3s ease-out";
+  }, [betSize, centerRow, slotProgress]);
 
   return (
     <div className="relative flex-1 overflow-hidden" style={{ minHeight: 0 }}>
-      {/* Container for the grid with clipping */}
-      <div
-        className="relative w-full h-full"
-        style={{
-          overflow: "hidden",
-        }}
-      >
-        {/* Panning container */}
+      <div className="relative w-full h-full" style={{ overflow: "hidden" }}>
+
+        {/* Panning container — no CSS transition, rAF handles smoothness */}
         <div
           className="relative"
           style={{
             width: gridWidth,
             height: gridHeight,
             transform: `translate(${-panX}px, ${-clipTop + panY}px)`,
-            transition: panTransition,
           }}
         >
           {/* Grid background lines */}
@@ -198,7 +155,7 @@ export default function GameGrid({
             }}
           />
 
-          {/* Past overlay - dim left columns */}
+          {/* Past overlay */}
           <div
             className="absolute top-0 bottom-0 pointer-events-none"
             style={{
@@ -207,18 +164,6 @@ export default function GameGrid({
               background:
                 "linear-gradient(to right, rgba(10, 15, 13, 0.7), rgba(10, 15, 13, 0.3))",
             }}
-          />
-
-          {/* Price line */}
-          <PriceLine
-            priceHistory={priceHistory}
-            centerPrice={currentPrice}
-            cellHeight={CELL_HEIGHT}
-            cellWidth={CELL_WIDTH}
-            gridHeight={gridHeight}
-            currentTimeCol={CURRENT_TIME_COL}
-            visibleRows={GRID_ROWS}
-            priceStep={PRICE_STEP}
           />
 
           {/* Grid cells */}
@@ -230,34 +175,30 @@ export default function GameGrid({
               gridTemplateRows: `repeat(${GRID_ROWS}, ${CELL_HEIGHT}px)`,
             }}
           >
-            {cells.map((cell) => {
-              const isFuture = cell.colDist > 0;
-              return (
-                <div
-                  key={`${cell.row}-${cell.col}`}
-                  className="grid-cell"
-                  style={{
-                    opacity: cell.isPast ? 0.3 : cell.isCurrentTime ? 0.5 : 1,
-                  }}
-                >
-                  {isFuture && cell.payout > 0 && (
-                    <span className="cell-payout">
-                      {formatPayout(cell.payout)}
-                    </span>
-                  )}
-                </div>
-              );
-            })}
+            {cells.map((cell) => (
+              <div
+                key={`${cell.row}-${cell.col}`}
+                className="grid-cell"
+                style={{
+                  opacity: cell.isPast ? 0.3 : cell.isCurrentTime ? 0.5 : 1,
+                }}
+              >
+                {cell.colDist > 0 && cell.payout > 0 && (
+                  <span className="cell-payout">
+                    {formatPayout(cell.payout)}
+                  </span>
+                )}
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Y-axis price labels - RIGHT side, fixed position */}
+        {/* Y-axis price labels — only smooth Y transition, no X */}
         <div
           className="absolute top-0 bottom-0 flex flex-col z-20"
           style={{
             right: 0,
             width: 80,
-            paddingTop: 0,
             transform: `translateY(${-clipTop + panY}px)`,
             transition: "transform 0.3s ease-out",
           }}
@@ -288,13 +229,12 @@ export default function GameGrid({
           </div>
         </div>
 
-        {/* X-axis time labels - BOTTOM, fixed position */}
+        {/* X-axis time labels — driven by same panX, no transition */}
         <div
           className="absolute bottom-0 left-0 flex z-20"
           style={{
             height: 28,
             transform: `translateX(${-panX}px)`,
-            transition: panTransition,
           }}
         >
           {timeLabels.map((label, i) => (
