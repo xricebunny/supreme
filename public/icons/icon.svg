@@ -1,15 +1,35 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
+    <!-- Background gradient -->
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" style="stop-color:#111a16"/>
       <stop offset="100%" style="stop-color:#0a0f0d"/>
     </linearGradient>
-    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#00ff88"/>
+
+    <!-- Accent gradient following the S diagonal (bottom-left green → top-right cyan) -->
+    <linearGradient id="accent" gradientUnits="userSpaceOnUse"
+                    x1="136" y1="368" x2="376" y2="108">
+      <stop offset="0%"   style="stop-color:#00ff88"/>
       <stop offset="100%" style="stop-color:#00e5ff"/>
     </linearGradient>
-    <filter id="glow">
-      <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+
+    <!-- Soft glow around the S mark -->
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="9" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Stronger ambient glow for the composite mark -->
+    <filter id="ambientGlow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="22" result="blur"/>
+      <feColorMatrix in="blur" type="matrix"
+        values="0 0 0 0 0
+                0 1 0 0 0.8
+                0 0 0 0 0.4
+                0 0 0 0.4 0" result="coloredBlur"/>
       <feMerge>
         <feMergeNode in="coloredBlur"/>
         <feMergeNode in="SourceGraphic"/>
@@ -17,38 +37,50 @@
     </filter>
   </defs>
 
-  <!-- Background -->
-  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+  <!-- ── Background ── -->
+  <rect width="512" height="512" rx="88" fill="url(#bg)"/>
 
-  <!-- Grid lines -->
-  <g stroke="#1e3329" stroke-width="2" opacity="0.6">
-    <line x1="128" y1="96" x2="128" y2="416"/>
-    <line x1="256" y1="96" x2="256" y2="416"/>
-    <line x1="384" y1="96" x2="384" y2="416"/>
-    <line x1="64" y1="176" x2="448" y2="176"/>
-    <line x1="64" y1="256" x2="448" y2="256"/>
-    <line x1="64" y1="336" x2="448" y2="336"/>
+  <!-- Subtle inner border ring -->
+  <rect x="14" y="14" width="484" height="484" rx="78"
+        fill="none" stroke="#1e3a28" stroke-width="1.5" opacity="0.6"/>
+
+  <!-- ── S curve ── -->
+  <!--
+    Path traces from bottom-left terminal to top-right terminal.
+    Segment 1 (lower arc):  (180,368) → bulges RIGHT → midpoint (256,238)
+    Segment 2 (upper arc):  (256,238) → bulges LEFT  → (332,108)
+    This produces a clean, symmetric S with 76 px of x-offset on each side.
+  -->
+  <g filter="url(#ambientGlow)">
+    <path d="M 180,368
+             C 326,368 342,238 256,238
+             C 162,238 186,108 332,108"
+          stroke="url(#accent)"
+          stroke-width="34"
+          fill="none"
+          stroke-linecap="butt"
+          filter="url(#glow)"/>
+
+    <!-- Bottom-left arrowhead — tip points LEFT (outward from S bottom) -->
+    <!-- Base aligns with path start at x=180; tip at x=136 -->
+    <polygon points="136,368  180,344  180,392"
+             fill="url(#accent)"
+             filter="url(#glow)"/>
+
+    <!-- Top-right arrowhead — tip points RIGHT (outward from S top) -->
+    <!-- Base aligns with path end at x=332; tip at x=376 -->
+    <polygon points="376,108  332,84  332,132"
+             fill="url(#accent)"
+             filter="url(#glow)"/>
   </g>
 
-  <!-- Price line with glow -->
-  <path d="M 64 300 Q 150 280, 200 320 T 320 240 T 448 280"
-        stroke="url(#accent)"
-        stroke-width="6"
-        fill="none"
-        stroke-linecap="round"
-        filter="url(#glow)"/>
-
-  <!-- Bet cell -->
-  <rect x="280" y="200" width="56" height="48" rx="8" fill="#00e5ff"/>
-
-  <!-- Brand text -->
-  <text x="256" y="460"
+  <!-- ── Wordmark ── -->
+  <text x="256" y="462"
         font-family="Georgia, serif"
-        font-size="48"
+        font-size="44"
         font-weight="bold"
         font-style="italic"
         fill="#00ff88"
-        text-anchor="middle">
-    Supreme
-  </text>
+        text-anchor="middle"
+        opacity="0.88">Supreme</text>
 </svg>
