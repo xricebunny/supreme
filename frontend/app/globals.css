@@ -1,0 +1,128 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-primary: #0a0f0d;
+  --bg-secondary: #111a16;
+  --bg-tertiary: #1a2721;
+  --border-grid: #1e3329;
+
+  --neon-primary: #00ff88;
+  --neon-glow: rgba(0, 255, 136, 0.5);
+  --neon-dim: rgba(0, 255, 136, 0.15);
+
+  --cyan-bet: #00e5ff;
+  --cyan-border: #40efff;
+  --cyan-glow: rgba(0, 229, 255, 0.4);
+
+  --text-muted: #4a7a66;
+  --text-dim: #3d5c4d;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg-primary);
+  color: #fff;
+  font-family: "Inter", -apple-system, system-ui, sans-serif;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  height: 100vh;
+}
+
+/* ===== Grid Cell ===== */
+.grid-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  user-select: none;
+  transition: opacity 0.2s ease;
+}
+
+.grid-cell:hover {
+  z-index: 5;
+}
+
+/* Hover glow effect: bleeds into adjacent cell borders */
+.grid-cell:hover::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: 2px;
+  background: linear-gradient(
+    135deg,
+    rgba(0, 255, 136, 0.08),
+    rgba(0, 255, 136, 0.02)
+  );
+  border: 1px solid rgba(0, 255, 136, 0.25);
+  box-shadow:
+    0 0 8px rgba(0, 255, 136, 0.15),
+    inset 0 0 4px rgba(0, 255, 136, 0.05);
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* Extended glow on neighbors via a larger pseudo-element */
+.grid-cell:hover::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 255, 136, 0.08);
+  pointer-events: none;
+  z-index: -2;
+}
+
+/* ===== Cell Payout Text ===== */
+.cell-payout {
+  font-size: 11px;
+  font-weight: 500;
+  color: #00ff88;
+  opacity: 0.7;
+  transition: opacity 0.15s ease;
+  line-height: 1;
+}
+
+.grid-cell:hover .cell-payout {
+  opacity: 1;
+  color: #00ff88;
+  text-shadow: 0 0 6px rgba(0, 255, 136, 0.4);
+}
+
+/* ===== Active Bet Cell ===== */
+.bet-cell {
+  background: rgba(0, 229, 255, 0.15) !important;
+  border: 1px solid #40efff !important;
+  border-radius: 3px;
+  box-shadow: 0 0 12px rgba(0, 229, 255, 0.3);
+}
+
+.bet-cell .bet-amount {
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.bet-cell .bet-payout {
+  font-size: 10px;
+  font-weight: 500;
+  color: #00e5ff;
+}
+
+/* ===== Price Line ===== */
+.price-line-path {
+  stroke: var(--neon-primary);
+  stroke-width: 2.5;
+  fill: none;
+  filter: drop-shadow(0 0 6px var(--neon-glow));
+}
