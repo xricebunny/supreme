@@ -6,8 +6,6 @@ import { getMultiplier, getCellPayout } from "@/lib/multiplier";
 
 const GRID_ROWS = 10;
 const GRID_COLS = 21;
-const CELL_WIDTH = 72;
-const CELL_HEIGHT = 56;
 const PRICE_STEP = 0.00005;
 const CURRENT_TIME_COL = 5;
 const CLIP_FRACTION = 0.33;
@@ -18,6 +16,8 @@ interface GameGridProps {
   timeSlot: number;
   gridRef: RefObject<HTMLDivElement>;
   xAxisRef: RefObject<HTMLDivElement>;
+  cellWidth: number;
+  cellHeight: number;
 }
 
 export default function GameGrid({
@@ -26,15 +26,17 @@ export default function GameGrid({
   timeSlot,
   gridRef,
   xAxisRef,
+  cellWidth,
+  cellHeight,
 }: GameGridProps) {
-  const gridWidth = GRID_COLS * CELL_WIDTH;
-  const gridHeight = GRID_ROWS * CELL_HEIGHT;
-  const clipTop = CELL_HEIGHT * CLIP_FRACTION;
+  const gridWidth = GRID_COLS * cellWidth;
+  const gridHeight = GRID_ROWS * cellHeight;
+  const clipTop = cellHeight * CLIP_FRACTION;
 
   // Vertical pan: smooth as price moves between row boundaries
   const priceInRowUnits = currentPrice / PRICE_STEP;
   const fractionalRow = priceInRowUnits % 1;
-  const panY = fractionalRow * CELL_HEIGHT;
+  const panY = fractionalRow * cellHeight;
 
   const centerRow = Math.floor(GRID_ROWS / 2);
 
@@ -112,7 +114,7 @@ export default function GameGrid({
   }, [betSize, centerRow]);
 
   return (
-    <div className="relative flex-1 overflow-hidden" style={{ minHeight: 0 }}>
+    <div className="relative w-full h-full overflow-hidden">
       <div
         className="relative w-full h-full"
         style={{ overflow: "hidden" }}
@@ -145,7 +147,7 @@ export default function GameGrid({
                   linear-gradient(to right, #1e3329 1px, transparent 1px),
                   linear-gradient(to bottom, #1e3329 1px, transparent 1px)
                 `,
-                backgroundSize: `${CELL_WIDTH}px ${CELL_HEIGHT}px`,
+                backgroundSize: `${cellWidth}px ${cellHeight}px`,
               }}
             />
 
@@ -154,8 +156,8 @@ export default function GameGrid({
               className="absolute inset-0"
               style={{
                 display: "grid",
-                gridTemplateColumns: `repeat(${GRID_COLS}, ${CELL_WIDTH}px)`,
-                gridTemplateRows: `repeat(${GRID_ROWS}, ${CELL_HEIGHT}px)`,
+                gridTemplateColumns: `repeat(${GRID_COLS}, ${cellWidth}px)`,
+                gridTemplateRows: `repeat(${GRID_ROWS}, ${cellHeight}px)`,
               }}
             >
               {cells.map((cell) => {
@@ -187,7 +189,7 @@ export default function GameGrid({
           className="absolute top-0 bottom-0 pointer-events-none"
           style={{
             left: 0,
-            width: (CURRENT_TIME_COL + 1) * CELL_WIDTH,
+            width: (CURRENT_TIME_COL + 1) * cellWidth,
             background:
               "linear-gradient(to right, rgba(10, 15, 13, 0.7), rgba(10, 15, 13, 0.3))",
             zIndex: 10,
@@ -198,7 +200,7 @@ export default function GameGrid({
         <div
           className="absolute top-0 bottom-0 pointer-events-none"
           style={{
-            left: (CURRENT_TIME_COL + 1) * CELL_WIDTH,
+            left: (CURRENT_TIME_COL + 1) * cellWidth,
             width: 2,
             background:
               "linear-gradient(to bottom, transparent, rgba(0, 255, 136, 0.4), transparent)",
@@ -210,8 +212,8 @@ export default function GameGrid({
         <div
           className="absolute left-0 right-0 pointer-events-none"
           style={{
-            top: centerRow * CELL_HEIGHT - clipTop + panY,
-            height: CELL_HEIGHT,
+            top: centerRow * cellHeight - clipTop + panY,
+            height: cellHeight,
             background: "rgba(0, 255, 136, 0.06)",
             borderTop: "1px solid rgba(0, 255, 136, 0.2)",
             borderBottom: "1px solid rgba(0, 255, 136, 0.2)",
@@ -235,7 +237,7 @@ export default function GameGrid({
               key={i}
               className="flex items-center justify-end pr-3 text-xs font-medium tabular-nums"
               style={{
-                height: CELL_HEIGHT,
+                height: cellHeight,
                 color: i === centerRow ? "#00ff88" : "#3d5c4d",
               }}
             >
@@ -247,7 +249,7 @@ export default function GameGrid({
           <div
             className="absolute right-0 px-2 py-1 rounded-l-md text-xs font-bold tabular-nums"
             style={{
-              top: centerRow * CELL_HEIGHT + CELL_HEIGHT / 2 - 12,
+              top: centerRow * cellHeight + cellHeight / 2 - 12,
               background: "#00ff88",
               color: "#0a0f0d",
             }}
@@ -270,7 +272,7 @@ export default function GameGrid({
               key={i}
               className="flex items-center justify-center text-xs tabular-nums"
               style={{
-                width: CELL_WIDTH,
+                width: cellWidth,
                 color: label ? "#4a7a66" : "#1e3329",
               }}
             >

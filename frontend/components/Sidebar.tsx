@@ -9,7 +9,7 @@ const navItems = [
 export default function Sidebar() {
   return (
     <aside
-      className="fixed left-0 top-0 bottom-0 z-30 flex flex-col"
+      className="flex-shrink-0 flex flex-col"
       style={{
         width: 200,
         background: "#0a0f0d",
