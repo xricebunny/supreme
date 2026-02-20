@@ -26,7 +26,7 @@ export default function Sidebar() {
             letterSpacing: "-0.5px",
           }}
         >
-          EUPHORIA
+          SUPREME
         </h1>
         <div className="text-xs mt-1" style={{ color: "#4a7a66" }}>
           FLOW Predictions

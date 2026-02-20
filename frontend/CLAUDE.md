@@ -1,4 +1,4 @@
-# CLAUDE.md — Euphoria Frontend Spec
+# CLAUDE.md — Supreme Frontend Spec
 
 ## Project
 Price prediction trading game for FLOW token. Desktop-first. Next.js 14, TypeScript, Tailwind CSS, App Router.
