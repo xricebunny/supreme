@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef, useEffect } from "react";
 import { formatPayout, formatTime } from "@/lib/formatters";
 import { getMultiplier, getCellPayout } from "@/lib/multiplier";
 import PriceLine from "./PriceLine";
@@ -38,6 +38,15 @@ export default function GameGrid({
   const clipTop = CELL_HEIGHT * CLIP_FRACTION;
   const clipBottom = CELL_HEIGHT * CLIP_FRACTION;
   const visibleHeight = gridHeight - clipTop - clipBottom;
+
+  // Detect slot boundary so we can suppress the CSS transition for one frame.
+  // Without this, the transition animates the panX reset (0.8*72 → 0) backwards,
+  // making the grid visibly slide right at every slot change.
+  const prevTimeSlotRef = useRef(timeSlot);
+  const slotJustChanged = prevTimeSlotRef.current !== timeSlot;
+  useEffect(() => {
+    prevTimeSlotRef.current = timeSlot;
+  }, [timeSlot]);
 
   // Horizontal pan: smooth transition within each 5-second slot
   const panX = timeSlotProgress * CELL_WIDTH;
@@ -102,11 +111,16 @@ export default function GameGrid({
         const rowDist = Math.abs(r - centerRow);
         const colDist = c - CURRENT_TIME_COL;
 
+        // effectiveColDist accounts for how far we've progressed within the
+        // current slot. A cell 1 column away at 80% progress is only 0.2 slots
+        // away from "now", so its multiplier/payout should reflect that.
+        const effectiveColDist = colDist - timeSlotProgress;
+
         let multiplier = 1;
         let payout = 0;
-        if (colDist > 0) {
-          multiplier = getMultiplier(rowDist, colDist);
-          payout = getCellPayout(betSize, rowDist, colDist);
+        if (effectiveColDist > 0) {
+          multiplier = getMultiplier(rowDist, effectiveColDist);
+          payout = getCellPayout(betSize, rowDist, effectiveColDist);
         }
 
         result.push({
@@ -123,7 +137,12 @@ export default function GameGrid({
       }
     }
     return result;
-  }, [betSize, centerRow]);
+  }, [betSize, centerRow, timeSlotProgress]);
+
+  // Suppress transition on slot boundary so the panX reset (e.g. 57px→0)
+  // doesn't animate backwards. Content (labels) also updates this frame, so
+  // the instant jump is seamless.
+  const panTransition = slotJustChanged ? "none" : "transform 0.3s ease-out";
 
   return (
     <div className="relative flex-1 overflow-hidden" style={{ minHeight: 0 }}>
@@ -141,7 +160,7 @@ export default function GameGrid({
             width: gridWidth,
             height: gridHeight,
             transform: `translate(${-panX}px, ${-clipTop + panY}px)`,
-            transition: "transform 0.3s ease-out",
+            transition: panTransition,
           }}
         >
           {/* Grid background lines */}
@@ -275,7 +294,7 @@ export default function GameGrid({
           style={{
             height: 28,
             transform: `translateX(${-panX}px)`,
-            transition: "transform 0.3s ease-out",
+            transition: panTransition,
           }}
         >
           {timeLabels.map((label, i) => (
