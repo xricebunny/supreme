@@ -6,6 +6,7 @@ import { getMultiplier, getCellPayout } from "@/lib/multiplier";
 
 const GRID_ROWS = 10;
 const GRID_COLS = 21;
+const RENDER_COLS = GRID_COLS + 2; // extra columns to fill the gap during panning
 const PRICE_STEP = 0.00005;
 const CURRENT_TIME_COL = 5;
 const CLIP_FRACTION = 0.33;
@@ -31,7 +32,7 @@ export default function GameGrid({
   cellWidth,
   cellHeight,
 }: GameGridProps) {
-  const gridWidth = GRID_COLS * cellWidth;
+  const gridWidth = RENDER_COLS * cellWidth;
   const gridHeight = GRID_ROWS * cellHeight;
   const clipTop = cellHeight * CLIP_FRACTION;
 
@@ -56,7 +57,7 @@ export default function GameGrid({
   const timeLabels = useMemo(() => {
     const labels: (string | null)[] = [];
     const slotBaseMs = baseTimeMs + timeSlot * 5000;
-    for (let c = 0; c < GRID_COLS; c++) {
+    for (let c = 0; c < RENDER_COLS; c++) {
       const colTimeMs = slotBaseMs + (c - CURRENT_TIME_COL) * 5000;
       if (c % 2 === 0) {
         labels.push(formatTime(new Date(colTimeMs)));
@@ -82,7 +83,7 @@ export default function GameGrid({
     }[] = [];
 
     for (let r = 0; r < GRID_ROWS; r++) {
-      for (let c = 0; c < GRID_COLS; c++) {
+      for (let c = 0; c < RENDER_COLS; c++) {
         const isPast = c < CURRENT_TIME_COL;
         const isCurrentTime = c === CURRENT_TIME_COL;
         const isCurrentPrice = r === centerRow;
@@ -155,7 +156,7 @@ export default function GameGrid({
               className="absolute inset-0"
               style={{
                 display: "grid",
-                gridTemplateColumns: `repeat(${GRID_COLS}, ${cellWidth}px)`,
+                gridTemplateColumns: `repeat(${RENDER_COLS}, ${cellWidth}px)`,
                 gridTemplateRows: `repeat(${GRID_ROWS}, ${cellHeight}px)`,
               }}
             >
