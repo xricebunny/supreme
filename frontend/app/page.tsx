@@ -41,7 +41,7 @@ export default function TradePage() {
       ? cellHeight * (BASE_CELL_WIDTH / BASE_CELL_HEIGHT)
       : BASE_CELL_WIDTH;
 
-  const { timeSlot, gridRef, xAxisRef } = useAnimationTime(cellWidth);
+  const { timeSlot, baseTimeMs, gridRef, xAxisRef } = useAnimationTime(cellWidth);
 
   return (
     <div
@@ -72,6 +72,7 @@ export default function TradePage() {
             currentPrice={currentPrice}
             betSize={betSize}
             timeSlot={timeSlot}
+            baseTimeMs={baseTimeMs}
             gridRef={gridRef}
             xAxisRef={xAxisRef}
             cellWidth={cellWidth}

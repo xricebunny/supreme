@@ -14,6 +14,7 @@ interface GameGridProps {
   currentPrice: number;
   betSize: number;
   timeSlot: number;
+  baseTimeMs: number;
   gridRef: RefObject<HTMLDivElement>;
   xAxisRef: RefObject<HTMLDivElement>;
   cellWidth: number;
@@ -24,6 +25,7 @@ export default function GameGrid({
   currentPrice,
   betSize,
   timeSlot,
+  baseTimeMs,
   gridRef,
   xAxisRef,
   cellWidth,
@@ -50,23 +52,20 @@ export default function GameGrid({
     return prices;
   }, [currentPrice, centerRow]);
 
-  // Time labels — recompute every slot change
+  // Time labels — pinned to absolute 5-second wall-clock boundaries
   const timeLabels = useMemo(() => {
     const labels: (string | null)[] = [];
-    const now = new Date();
+    const slotBaseMs = baseTimeMs + timeSlot * 5000;
     for (let c = 0; c < GRID_COLS; c++) {
-      const colOffset = c - CURRENT_TIME_COL;
-      const secondsOffset = colOffset * 5;
-      const time = new Date(now.getTime() + secondsOffset * 1000);
+      const colTimeMs = slotBaseMs + (c - CURRENT_TIME_COL) * 5000;
       if (c % 2 === 0) {
-        labels.push(formatTime(time));
+        labels.push(formatTime(new Date(colTimeMs)));
       } else {
         labels.push(null);
       }
     }
     return labels;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeSlot]);
+  }, [timeSlot, baseTimeMs]);
 
   // Cell data
   const cells = useMemo(() => {
