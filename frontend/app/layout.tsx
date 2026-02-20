@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Euphoria — FLOW Price Predictions",
+  title: "Supreme — FLOW Price Predictions",
   description: "Price prediction trading game for FLOW token",
 };
 
