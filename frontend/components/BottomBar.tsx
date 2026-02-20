@@ -25,9 +25,8 @@ export default function BottomBar({
 
   return (
     <div
-      className="fixed bottom-0 right-0 z-20 flex items-center justify-between px-6 py-3"
+      className="flex-shrink-0 flex items-center justify-between px-6 py-3"
       style={{
-        left: 200,
         background: "#0a0f0d",
         borderTop: "1px solid #1e3329",
       }}

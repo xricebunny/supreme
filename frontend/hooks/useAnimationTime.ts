@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, RefObject } from "react";
 
-const CELL_WIDTH = 72;
 const SLOT_MS = 5000; // 5 seconds per time slot
 
 /**
@@ -10,7 +9,7 @@ const SLOT_MS = 5000; // 5 seconds per time slot
  * Sets translateX directly on DOM refs for 60fps panning.
  * Only triggers React re-renders when timeSlot changes (every 5s).
  */
-export function useAnimationTime(): {
+export function useAnimationTime(cellWidth: number): {
   timeSlot: number;
   gridRef: RefObject<HTMLDivElement>;
   xAxisRef: RefObject<HTMLDivElement>;
@@ -19,6 +18,8 @@ export function useAnimationTime(): {
   const startRef = useRef(performance.now());
   const gridRef = useRef<HTMLDivElement>(null);
   const xAxisRef = useRef<HTMLDivElement>(null);
+  const cellWidthRef = useRef(cellWidth);
+  cellWidthRef.current = cellWidth;
 
   useEffect(() => {
     let raf: number;
@@ -28,7 +29,7 @@ export function useAnimationTime(): {
       const elapsed = performance.now() - startRef.current;
       const slot = Math.floor(elapsed / SLOT_MS);
       const progress = (elapsed % SLOT_MS) / SLOT_MS;
-      const panX = progress * CELL_WIDTH;
+      const panX = progress * cellWidthRef.current;
 
       // Direct DOM updates — no React re-render
       if (gridRef.current) {
