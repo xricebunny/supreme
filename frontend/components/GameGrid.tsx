@@ -1,11 +1,9 @@
 "use client";
 
-import { useMemo, RefObject } from "react";
+import { useMemo, useRef, useState, useEffect, RefObject } from "react";
 import { formatPayout, formatTime } from "@/lib/formatters";
 import { getMultiplier, getCellPayout } from "@/lib/multiplier";
 
-const GRID_ROWS = 10;
-const GRID_COLS = 21;
 const CELL_WIDTH = 72;
 const CELL_HEIGHT = 56;
 const PRICE_STEP = 0.00005;
@@ -27,8 +25,30 @@ export default function GameGrid({
   gridRef,
   xAxisRef,
 }: GameGridProps) {
-  const gridWidth = GRID_COLS * CELL_WIDTH;
-  const gridHeight = GRID_ROWS * CELL_HEIGHT;
+  // ── Measure container to compute dynamic row/col count ──
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ w: 1920, h: 900 });
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    // Measure immediately
+    setSize({ w: el.clientWidth, h: el.clientHeight });
+    const ro = new ResizeObserver(([entry]) => {
+      setSize({
+        w: entry.contentRect.width,
+        h: entry.contentRect.height,
+      });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Dynamic grid dimensions — fill the viewport + buffer for panning
+  const gridCols = Math.ceil(size.w / CELL_WIDTH) + 3;
+  const gridRows = Math.ceil(size.h / CELL_HEIGHT) + 2;
+  const gridWidth = gridCols * CELL_WIDTH;
+  const gridHeight = gridRows * CELL_HEIGHT;
   const clipTop = CELL_HEIGHT * CLIP_FRACTION;
 
   // Vertical pan: smooth as price moves between row boundaries
@@ -36,23 +56,23 @@ export default function GameGrid({
   const fractionalRow = priceInRowUnits % 1;
   const panY = fractionalRow * CELL_HEIGHT;
 
-  const centerRow = Math.floor(GRID_ROWS / 2);
+  const centerRow = Math.floor(gridRows / 2);
 
   // Price labels for each row
   const rowPrices = useMemo(() => {
     const prices: number[] = [];
-    for (let r = 0; r < GRID_ROWS; r++) {
+    for (let r = 0; r < gridRows; r++) {
       const rowOffset = centerRow - r;
       prices.push(currentPrice + rowOffset * PRICE_STEP);
     }
     return prices;
-  }, [currentPrice, centerRow]);
+  }, [currentPrice, centerRow, gridRows]);
 
-  // Time labels — recompute every slot change
+  // Time labels — recompute every slot change or column count change
   const timeLabels = useMemo(() => {
     const labels: (string | null)[] = [];
     const now = new Date();
-    for (let c = 0; c < GRID_COLS; c++) {
+    for (let c = 0; c < gridCols; c++) {
       const colOffset = c - CURRENT_TIME_COL;
       const secondsOffset = colOffset * 5;
       const time = new Date(now.getTime() + secondsOffset * 1000);
@@ -64,7 +84,7 @@ export default function GameGrid({
     }
     return labels;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeSlot]);
+  }, [timeSlot, gridCols]);
 
   // Cell data
   const cells = useMemo(() => {
@@ -80,8 +100,8 @@ export default function GameGrid({
       payout: number;
     }[] = [];
 
-    for (let r = 0; r < GRID_ROWS; r++) {
-      for (let c = 0; c < GRID_COLS; c++) {
+    for (let r = 0; r < gridRows; r++) {
+      for (let c = 0; c < gridCols; c++) {
         const isPast = c < CURRENT_TIME_COL;
         const isCurrentTime = c === CURRENT_TIME_COL;
         const isCurrentPrice = r === centerRow;
@@ -109,175 +129,170 @@ export default function GameGrid({
       }
     }
     return result;
-  }, [betSize, centerRow]);
+  }, [betSize, centerRow, gridCols, gridRows]);
 
   return (
-    <div className="relative flex-1 overflow-hidden" style={{ minHeight: 0 }}>
+    <div ref={containerRef} className="absolute inset-0 overflow-hidden">
+      {/* ── Horizontal panning layer (rAF-driven via ref, NO transition) ── */}
       <div
-        className="relative w-full h-full"
-        style={{ overflow: "hidden" }}
+        ref={gridRef}
+        className="relative"
+        style={{
+          width: gridWidth,
+          height: gridHeight,
+          willChange: "transform",
+        }}
       >
-        {/* ── Horizontal panning layer (rAF-driven via ref, NO transition) ── */}
+        {/* Vertical panning sublayer (React-driven, smooth transition) */}
         <div
-          ref={gridRef}
           className="relative"
           style={{
             width: gridWidth,
             height: gridHeight,
-            willChange: "transform",
-          }}
-        >
-          {/* Vertical panning sublayer (React-driven, smooth transition) */}
-          <div
-            className="relative"
-            style={{
-              width: gridWidth,
-              height: gridHeight,
-              transform: `translateY(${-clipTop + panY}px)`,
-              transition: "transform 0.3s ease-out",
-            }}
-          >
-            {/* Grid background lines */}
-            <div
-              className="absolute inset-0 pointer-events-none"
-              style={{
-                backgroundImage: `
-                  linear-gradient(to right, #1e3329 1px, transparent 1px),
-                  linear-gradient(to bottom, #1e3329 1px, transparent 1px)
-                `,
-                backgroundSize: `${CELL_WIDTH}px ${CELL_HEIGHT}px`,
-              }}
-            />
-
-            {/* Grid cells */}
-            <div
-              className="absolute inset-0"
-              style={{
-                display: "grid",
-                gridTemplateColumns: `repeat(${GRID_COLS}, ${CELL_WIDTH}px)`,
-                gridTemplateRows: `repeat(${GRID_ROWS}, ${CELL_HEIGHT}px)`,
-              }}
-            >
-              {cells.map((cell) => {
-                const isFuture = cell.colDist > 0;
-                return (
-                  <div
-                    key={`${cell.row}-${cell.col}`}
-                    className="grid-cell"
-                    style={{
-                      opacity: cell.isPast ? 0.3 : cell.isCurrentTime ? 0.5 : 1,
-                    }}
-                  >
-                    {isFuture && cell.payout > 0 && (
-                      <span className="cell-payout">
-                        {formatPayout(cell.payout)}
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        {/* ── Fixed overlays (outside panning container, don't scroll) ── */}
-
-        {/* Past overlay — dims columns left of "now" */}
-        <div
-          className="absolute top-0 bottom-0 pointer-events-none"
-          style={{
-            left: 0,
-            width: (CURRENT_TIME_COL + 1) * CELL_WIDTH,
-            background:
-              "linear-gradient(to right, rgba(10, 15, 13, 0.7), rgba(10, 15, 13, 0.3))",
-            zIndex: 10,
-          }}
-        />
-
-        {/* Current time separator — fixed vertical line */}
-        <div
-          className="absolute top-0 bottom-0 pointer-events-none"
-          style={{
-            left: (CURRENT_TIME_COL + 1) * CELL_WIDTH,
-            width: 2,
-            background:
-              "linear-gradient(to bottom, transparent, rgba(0, 255, 136, 0.4), transparent)",
-            zIndex: 10,
-          }}
-        />
-
-        {/* Current price row highlight — follows Y panning only */}
-        <div
-          className="absolute left-0 right-0 pointer-events-none"
-          style={{
-            top: centerRow * CELL_HEIGHT - clipTop + panY,
-            height: CELL_HEIGHT,
-            background: "rgba(0, 255, 136, 0.06)",
-            borderTop: "1px solid rgba(0, 255, 136, 0.2)",
-            borderBottom: "1px solid rgba(0, 255, 136, 0.2)",
-            transition: "top 0.3s ease-out",
-            zIndex: 10,
-          }}
-        />
-
-        {/* ── Y-axis price labels (right side, Y panning only) ── */}
-        <div
-          className="absolute top-0 bottom-0 flex flex-col z-20"
-          style={{
-            right: 0,
-            width: 80,
             transform: `translateY(${-clipTop + panY}px)`,
             transition: "transform 0.3s ease-out",
           }}
         >
-          {rowPrices.map((price, i) => (
-            <div
-              key={i}
-              className="flex items-center justify-end pr-3 text-xs font-medium tabular-nums"
-              style={{
-                height: CELL_HEIGHT,
-                color: i === centerRow ? "#00ff88" : "#3d5c4d",
-              }}
-            >
-              ${price.toFixed(5)}
-            </div>
-          ))}
-
-          {/* Current price badge */}
+          {/* Grid background lines */}
           <div
-            className="absolute right-0 px-2 py-1 rounded-l-md text-xs font-bold tabular-nums"
+            className="absolute inset-0 pointer-events-none"
             style={{
-              top: centerRow * CELL_HEIGHT + CELL_HEIGHT / 2 - 12,
-              background: "#00ff88",
-              color: "#0a0f0d",
+              backgroundImage: `
+                linear-gradient(to right, #1e3329 1px, transparent 1px),
+                linear-gradient(to bottom, #1e3329 1px, transparent 1px)
+              `,
+              backgroundSize: `${CELL_WIDTH}px ${CELL_HEIGHT}px`,
+            }}
+          />
+
+          {/* Grid cells */}
+          <div
+            className="absolute inset-0"
+            style={{
+              display: "grid",
+              gridTemplateColumns: `repeat(${gridCols}, ${CELL_WIDTH}px)`,
+              gridTemplateRows: `repeat(${gridRows}, ${CELL_HEIGHT}px)`,
             }}
           >
-            ${currentPrice.toFixed(5)}
+            {cells.map((cell) => {
+              const isFuture = cell.colDist > 0;
+              return (
+                <div
+                  key={`${cell.row}-${cell.col}`}
+                  className="grid-cell"
+                  style={{
+                    opacity: cell.isPast ? 0.3 : cell.isCurrentTime ? 0.5 : 1,
+                  }}
+                >
+                  {isFuture && cell.payout > 0 && (
+                    <span className="cell-payout">
+                      {formatPayout(cell.payout)}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
+      </div>
 
-        {/* ── X-axis time labels (bottom, rAF-driven via ref) ── */}
+      {/* ── Fixed overlays (outside panning container, don't scroll) ── */}
+
+      {/* Past overlay — dims columns left of "now" */}
+      <div
+        className="absolute top-0 bottom-0 pointer-events-none"
+        style={{
+          left: 0,
+          width: (CURRENT_TIME_COL + 1) * CELL_WIDTH,
+          background:
+            "linear-gradient(to right, rgba(10, 15, 13, 0.7), rgba(10, 15, 13, 0.3))",
+          zIndex: 10,
+        }}
+      />
+
+      {/* Current time separator — fixed vertical line */}
+      <div
+        className="absolute top-0 bottom-0 pointer-events-none"
+        style={{
+          left: (CURRENT_TIME_COL + 1) * CELL_WIDTH,
+          width: 2,
+          background:
+            "linear-gradient(to bottom, transparent, rgba(0, 255, 136, 0.4), transparent)",
+          zIndex: 10,
+        }}
+      />
+
+      {/* Current price row highlight — follows Y panning only */}
+      <div
+        className="absolute left-0 right-0 pointer-events-none"
+        style={{
+          top: centerRow * CELL_HEIGHT - clipTop + panY,
+          height: CELL_HEIGHT,
+          background: "rgba(0, 255, 136, 0.06)",
+          borderTop: "1px solid rgba(0, 255, 136, 0.2)",
+          borderBottom: "1px solid rgba(0, 255, 136, 0.2)",
+          transition: "top 0.3s ease-out",
+          zIndex: 10,
+        }}
+      />
+
+      {/* ── Y-axis price labels (right side, Y panning only) ── */}
+      <div
+        className="absolute top-0 bottom-0 flex flex-col z-20"
+        style={{
+          right: 0,
+          width: 80,
+          transform: `translateY(${-clipTop + panY}px)`,
+          transition: "transform 0.3s ease-out",
+        }}
+      >
+        {rowPrices.map((price, i) => (
+          <div
+            key={i}
+            className="flex items-center justify-end pr-3 text-xs font-medium tabular-nums"
+            style={{
+              height: CELL_HEIGHT,
+              color: i === centerRow ? "#00ff88" : "#3d5c4d",
+            }}
+          >
+            ${price.toFixed(5)}
+          </div>
+        ))}
+
+        {/* Current price badge */}
         <div
-          ref={xAxisRef}
-          className="absolute bottom-0 left-0 flex z-20"
+          className="absolute right-0 px-2 py-1 rounded-l-md text-xs font-bold tabular-nums"
           style={{
-            height: 28,
-            willChange: "transform",
+            top: centerRow * CELL_HEIGHT + CELL_HEIGHT / 2 - 12,
+            background: "#00ff88",
+            color: "#0a0f0d",
           }}
         >
-          {timeLabels.map((label, i) => (
-            <div
-              key={i}
-              className="flex items-center justify-center text-xs tabular-nums"
-              style={{
-                width: CELL_WIDTH,
-                color: label ? "#4a7a66" : "#1e3329",
-              }}
-            >
-              {label || "·"}
-            </div>
-          ))}
+          ${currentPrice.toFixed(5)}
         </div>
+      </div>
+
+      {/* ── X-axis time labels (bottom, rAF-driven via ref) ── */}
+      <div
+        ref={xAxisRef}
+        className="absolute bottom-0 left-0 flex z-20"
+        style={{
+          height: 28,
+          willChange: "transform",
+        }}
+      >
+        {timeLabels.map((label, i) => (
+          <div
+            key={i}
+            className="flex items-center justify-center text-xs tabular-nums"
+            style={{
+              width: CELL_WIDTH,
+              color: label ? "#4a7a66" : "#1e3329",
+            }}
+          >
+            {label || "·"}
+          </div>
+        ))}
       </div>
     </div>
   );
