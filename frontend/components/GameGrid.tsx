@@ -59,7 +59,7 @@ export default function GameGrid({
     const slotBaseMs = baseTimeMs + timeSlot * 5000;
     for (let c = 0; c < RENDER_COLS; c++) {
       const colTimeMs = slotBaseMs + (c - CURRENT_TIME_COL) * 5000;
-      if (c % 2 === 0) {
+      if ((timeSlot + c) % 2 === 0) {
         labels.push(formatTime(new Date(colTimeMs)));
       } else {
         labels.push(null);
