@@ -5,20 +5,48 @@ import { PricePoint } from "@/types";
 
 interface PriceLineProps {
   priceHistory: PricePoint[];
-  /** The price at the center of the grid (current price) */
   centerPrice: number;
-  /** Height of each cell in pixels */
   cellHeight: number;
-  /** Width of each cell in pixels */
   cellWidth: number;
-  /** Total grid height in pixels */
-  gridHeight: number;
-  /** The column index that represents "current time" */
   currentTimeCol: number;
-  /** Number of visible rows */
-  visibleRows: number;
-  /** Price increment per row */
   priceStep: number;
+  /** The Y pixel position of the current price in the full grid coordinate system */
+  centerPriceY: number;
+}
+
+/**
+ * Attempt a Catmull-Rom spline through data points for smooth organic curves.
+ * Falls back to cubic Bézier if < 3 points.
+ */
+function catmullRomPath(points: { x: number; y: number }[], alpha = 0.5): string {
+  if (points.length < 2) return "";
+  if (points.length === 2) {
+    return `M ${points[0].x} ${points[0].y} L ${points[1].x} ${points[1].y}`;
+  }
+
+  let d = `M ${points[0].x} ${points[0].y}`;
+
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[Math.max(0, i - 1)];
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const p3 = points[Math.min(points.length - 1, i + 2)];
+
+    // Catmull-Rom to cubic Bézier conversion
+    const d1x = p2.x - p0.x;
+    const d1y = p2.y - p0.y;
+    const d2x = p3.x - p1.x;
+    const d2y = p3.y - p1.y;
+
+    const cp1x = p1.x + d1x / (6 * alpha);
+    const cp1y = p1.y + d1y / (6 * alpha);
+    const cp2x = p2.x - d2x / (6 * alpha);
+    const cp2y = p2.y - d2y / (6 * alpha);
+
+    d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
+  }
+
+  return d;
 }
 
 export default function PriceLine({
@@ -26,58 +54,52 @@ export default function PriceLine({
   centerPrice,
   cellHeight,
   cellWidth,
-  gridHeight,
   currentTimeCol,
-  visibleRows,
   priceStep,
+  centerPriceY,
 }: PriceLineProps) {
-  const pathData = useMemo(() => {
-    if (priceHistory.length < 2) return "";
+  const { pathData, lastPoint, dashBreakX } = useMemo(() => {
+    if (priceHistory.length < 2)
+      return { pathData: "", lastPoint: null, dashBreakX: 0 };
 
-    // Map each price point to an x,y coordinate
-    // X: each price point is 1 second apart, each column is 5 seconds
-    // So price points are spaced cellWidth/5 apart
     const pixelsPerSecond = cellWidth / 5;
-    const centerY = gridHeight / 2;
+    const secondsPerTick = 0.2; // each data point is 200ms apart
+    const centerY = centerPriceY;
 
     const points = priceHistory.map((point, i) => {
-      // X position: spread across past columns, ending at current time column
-      const secondsFromEnd = priceHistory.length - 1 - i;
+      const ticksFromEnd = priceHistory.length - 1 - i;
+      const secondsFromEnd = ticksFromEnd * secondsPerTick;
       const x =
         (currentTimeCol + 0.5) * cellWidth - secondsFromEnd * pixelsPerSecond;
-
-      // Y position: offset from center based on price difference
       const priceDiff = point.price - centerPrice;
       const rowOffset = priceDiff / priceStep;
       const y = centerY - rowOffset * cellHeight;
-
       return { x, y };
     });
 
-    // Build SVG path
-    if (points.length === 0) return "";
+    // The last ~10 seconds are "recent" (solid), everything before is dashed
+    const recentTicks = 50; // 10 seconds × 5 ticks/sec
+    const breakIndex = Math.max(0, points.length - recentTicks);
+    const breakX = points[breakIndex]?.x ?? points[0].x;
 
-    let d = `M ${points[0].x} ${points[0].y}`;
-    for (let i = 1; i < points.length; i++) {
-      // Use smooth curves for a nicer line
-      const prev = points[i - 1];
-      const curr = points[i];
-      const cpx = (prev.x + curr.x) / 2;
-      d += ` C ${cpx} ${prev.y}, ${cpx} ${curr.y}, ${curr.x} ${curr.y}`;
-    }
+    const d = catmullRomPath(points);
+    const last = points[points.length - 1];
 
-    return d;
+    return { pathData: d, lastPoint: last, dashBreakX: breakX };
   }, [
     priceHistory,
     centerPrice,
     cellHeight,
     cellWidth,
-    gridHeight,
+    centerPriceY,
     currentTimeCol,
     priceStep,
   ]);
 
-  if (!pathData) return null;
+  if (!pathData || !lastPoint) return null;
+
+  const lineColor = "#00ff88";
+  const glowColor = "rgba(0, 255, 136, 0.25)";
 
   return (
     <svg
@@ -92,25 +114,43 @@ export default function PriceLine({
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
+        <filter id="priceDotGlow">
+          <feGaussianBlur stdDeviation="6" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+
+        {/* Gradient: transparent at far left → opaque at current price */}
         <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#00ff88" stopOpacity="0.2" />
-          <stop offset="60%" stopColor="#00ff88" stopOpacity="0.8" />
-          <stop offset="100%" stopColor="#00ff88" stopOpacity="1" />
+          <stop offset="0%" stopColor={lineColor} stopOpacity="0.15" />
+          <stop offset="50%" stopColor={lineColor} stopOpacity="0.5" />
+          <stop offset="100%" stopColor={lineColor} stopOpacity="0.85" />
         </linearGradient>
+
+        {/* Clip rect for the dashed (historical) portion */}
+        <clipPath id="dashClip">
+          <rect x="-9999" y="-9999" width={dashBreakX + 9999} height="99999" />
+        </clipPath>
+        {/* Clip rect for the solid (recent) portion */}
+        <clipPath id="solidClip">
+          <rect x={dashBreakX} y="-9999" width="99999" height="99999" />
+        </clipPath>
       </defs>
 
       {/* Glow layer */}
       <path
         d={pathData}
         fill="none"
-        stroke="rgba(0, 255, 136, 0.3)"
-        strokeWidth="6"
+        stroke={glowColor}
+        strokeWidth="7"
         strokeLinecap="round"
         strokeLinejoin="round"
         filter="url(#priceLineGlow)"
       />
 
-      {/* Main line */}
+      {/* Historical portion — dashed */}
       <path
         d={pathData}
         fill="none"
@@ -118,26 +158,48 @@ export default function PriceLine({
         strokeWidth="2.5"
         strokeLinecap="round"
         strokeLinejoin="round"
+        strokeDasharray="6 4"
+        clipPath="url(#dashClip)"
       />
 
-      {/* Current price dot */}
-      {priceHistory.length > 0 && (
-        <>
-          <circle
-            cx={(currentTimeCol + 0.5) * cellWidth}
-            cy={gridHeight / 2}
-            r="5"
-            fill="#00ff88"
-            filter="url(#priceLineGlow)"
-          />
-          <circle
-            cx={(currentTimeCol + 0.5) * cellWidth}
-            cy={gridHeight / 2}
-            r="3"
-            fill="#ffffff"
-          />
-        </>
-      )}
+      {/* Recent portion — solid */}
+      <path
+        d={pathData}
+        fill="none"
+        stroke="url(#lineGradient)"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        clipPath="url(#solidClip)"
+      />
+
+      {/* Live price dot — outer pulse ring */}
+      <circle
+        cx={lastPoint.x}
+        cy={lastPoint.y}
+        r="8"
+        fill="none"
+        stroke="rgba(255, 255, 255, 0.3)"
+        strokeWidth="2"
+        className="price-dot-pulse"
+      />
+
+      {/* Live price dot — glow */}
+      <circle
+        cx={lastPoint.x}
+        cy={lastPoint.y}
+        r="6"
+        fill="rgba(255, 255, 255, 0.3)"
+        filter="url(#priceDotGlow)"
+      />
+
+      {/* Live price dot — bright core */}
+      <circle
+        cx={lastPoint.x}
+        cy={lastPoint.y}
+        r="4"
+        fill="#ffffff"
+      />
     </svg>
   );
 }

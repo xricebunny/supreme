@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { getCurrentPrice, getPriceHistory } from "@/lib/data";
+import { getCurrentPrice, getPriceHistory, TICK_INTERVAL_MS } from "@/lib/data";
 import { PricePoint } from "@/types";
 
 interface UseSimulatedPriceReturn {
@@ -11,8 +11,8 @@ interface UseSimulatedPriceReturn {
 }
 
 /**
- * Drives a simulated price tick every 1 second through data.ts prices.
- * Wraps around the 60-point dataset for continuous simulation.
+ * Drives a simulated price tick every 200ms through data.ts prices.
+ * Wraps around the 300-point dataset for continuous simulation.
  */
 export function useSimulatedPrice(): UseSimulatedPriceReturn {
   const [tickIndex, setTickIndex] = useState(0);
@@ -22,13 +22,13 @@ export function useSimulatedPrice(): UseSimulatedPriceReturn {
     const interval = setInterval(() => {
       tickRef.current += 1;
       setTickIndex(tickRef.current);
-    }, 1000);
+    }, TICK_INTERVAL_MS);
 
     return () => clearInterval(interval);
   }, []);
 
   const currentPrice = getCurrentPrice(tickIndex);
-  const priceHistory = getPriceHistory(tickIndex, 30);
+  const priceHistory = getPriceHistory(tickIndex, 150);
 
   return { currentPrice, priceHistory, tickIndex };
 }

@@ -3,6 +3,8 @@
 import { useMemo, RefObject } from "react";
 import { formatPayout, formatTime } from "@/lib/formatters";
 import { getMultiplier, getCellPayout } from "@/lib/multiplier";
+import { PricePoint } from "@/types";
+import PriceLine from "@/components/PriceLine";
 
 const VISIBLE_ROWS = 10;
 const GRID_COLS = 21;
@@ -17,6 +19,7 @@ const TOTAL_ROWS = Math.round((PRICE_MAX - PRICE_MIN) / PRICE_STEP); // 40 rows
 
 interface GameGridProps {
   currentPrice: number;
+  priceHistory: PricePoint[];
   betSize: number;
   timeSlot: number;
   baseTimeMs: number;
@@ -29,6 +32,7 @@ interface GameGridProps {
 
 export default function GameGrid({
   currentPrice,
+  priceHistory,
   betSize,
   timeSlot,
   baseTimeMs,
@@ -210,6 +214,33 @@ export default function GameGrid({
                 );
               })}
             </div>
+
+          </div>
+        </div>
+
+        {/* ── Price line overlay — fixed horizontally, pans only vertically ── */}
+        <div
+          className="absolute inset-0 pointer-events-none overflow-hidden"
+          style={{ zIndex: 15 }}
+        >
+          <div
+            style={{
+              position: "relative",
+              width: "100%",
+              height: totalGridHeight,
+              transform: `translateY(${translateY}px)`,
+              transition: "transform 0.3s ease-out",
+            }}
+          >
+            <PriceLine
+              priceHistory={priceHistory}
+              centerPrice={currentPrice}
+              cellHeight={cellHeight}
+              cellWidth={cellWidth}
+              currentTimeCol={CURRENT_TIME_COL}
+              priceStep={PRICE_STEP}
+              centerPriceY={(currentPriceRow + fractionInRow) * cellHeight}
+            />
           </div>
         </div>
 

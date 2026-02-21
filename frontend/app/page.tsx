@@ -14,7 +14,7 @@ const BASE_CELL_WIDTH = 72;
 const BASE_CELL_HEIGHT = 56;
 
 export default function TradePage() {
-  const { currentPrice } = useSimulatedPrice();
+  const { currentPrice, priceHistory } = useSimulatedPrice();
   const { betSize, setBetSize } = useGameState(currentPrice);
 
   const gridAreaRef = useRef<HTMLDivElement>(null);
@@ -70,6 +70,7 @@ export default function TradePage() {
         >
           <GameGrid
             currentPrice={currentPrice}
+            priceHistory={priceHistory}
             betSize={betSize}
             timeSlot={timeSlot}
             baseTimeMs={baseTimeMs}
