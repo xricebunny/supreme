@@ -1,9 +1,11 @@
 "use client";
 
+import { TradeIcon, TrophyIcon, ProfileIcon, SettingsIcon, MusicIcon } from "./Icons";
+
 const navItems = [
-  { icon: "📈", label: "Trade", active: true },
-  { icon: "🏆", label: "Leaderboard", active: false },
-  { icon: "👤", label: "Profile", active: false },
+  { icon: TradeIcon, label: "Trade", active: true },
+  { icon: TrophyIcon, label: "Leaderboard", active: false },
+  { icon: ProfileIcon, label: "Profile", active: false },
 ];
 
 export default function Sidebar() {
@@ -48,7 +50,7 @@ export default function Sidebar() {
               fontWeight: item.active ? 600 : 400,
             }}
           >
-            <span className="text-lg">{item.icon}</span>
+            <item.icon size={18} color={item.active ? "#00ff88" : "#4a7a66"} />
             <span>{item.label}</span>
           </button>
         ))}
@@ -64,11 +66,9 @@ export default function Sidebar() {
             background: "transparent",
             border: "none",
             cursor: "pointer",
-            fontSize: 18,
-            color: "#4a7a66",
           }}
         >
-          ⚙️
+          <SettingsIcon size={18} color="#4a7a66" />
         </button>
         <button
           className="flex items-center justify-center rounded-lg transition-colors"
@@ -78,11 +78,9 @@ export default function Sidebar() {
             background: "transparent",
             border: "none",
             cursor: "pointer",
-            fontSize: 18,
-            color: "#4a7a66",
           }}
         >
-          🎵
+          <MusicIcon size={18} color="#4a7a66" />
         </button>
       </div>
     </aside>

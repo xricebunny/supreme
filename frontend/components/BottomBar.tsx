@@ -1,6 +1,7 @@
 "use client";
 
 import { formatBalance } from "@/lib/formatters";
+import { CoinsIcon, ChipIcon } from "./Icons";
 
 const BET_SIZES = [5, 10, 25, 50, 75, 100];
 
@@ -37,7 +38,7 @@ export default function BottomBar({
           className="flex items-center gap-2 px-4 py-2 rounded-full"
           style={{ background: "#111a16" }}
         >
-          <span className="text-sm">💰</span>
+          <CoinsIcon size={16} color="#00ff88" />
           <span
             className="text-sm font-semibold tabular-nums"
             style={{ color: "#ffffff" }}
@@ -71,7 +72,7 @@ export default function BottomBar({
             border: "1px solid #1e3329",
           }}
         >
-          <span className="text-sm">🏁</span>
+          <ChipIcon size={16} color="#00ff88" />
           <span
             className="text-sm font-bold tabular-nums"
             style={{ color: "#ffffff" }}
