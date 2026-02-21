@@ -218,19 +218,6 @@ export default function GameGrid({
           }}
         />
 
-        {/* Current price row highlight — follows Y panning only */}
-        <div
-          className="absolute left-0 right-0 pointer-events-none"
-          style={{
-            top: centerRow * cellHeight - clipTop + panY,
-            height: cellHeight,
-            background: "rgba(0, 255, 136, 0.06)",
-            borderTop: "1px solid rgba(0, 255, 136, 0.2)",
-            borderBottom: "1px solid rgba(0, 255, 136, 0.2)",
-            transition: "top 0.3s ease-out",
-            zIndex: 10,
-          }}
-        />
 
         {/* ── Y-axis price labels (right side, Y panning only) ── */}
         <div

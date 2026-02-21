@@ -182,16 +182,6 @@ html, body {
   z-index: 20;
 }
 
-/* Price row highlight */
-.price-row-highlight {
-  position: absolute;
-  left: 0;
-  right: 0;
-  background: var(--pink-dim);
-  border-top: 1px solid rgba(217, 70, 239, 0.35);
-  border-bottom: 1px solid rgba(217, 70, 239, 0.35);
-  pointer-events: none;
-}
 
 /* Multiplier text */
 .mult-text {
