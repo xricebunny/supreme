@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useSimulatedPrice } from "@/hooks/useSimulatedPrice";
+import { useBinancePrice } from "@/hooks/useBinancePrice";
 import { useGameState } from "@/hooks/useGameState";
 import { useAnimationTime } from "@/hooks/useAnimationTime";
 import Sidebar from "@/components/Sidebar";
@@ -14,7 +14,7 @@ const BASE_CELL_WIDTH = 72;
 const BASE_CELL_HEIGHT = 56;
 
 export default function TradePage() {
-  const { currentPrice, priceHistory } = useSimulatedPrice();
+  const { currentPrice, priceHistory, connected, timedOut } = useBinancePrice();
   const { betSize, setBetSize } = useGameState(currentPrice);
 
   const gridAreaRef = useRef<HTMLDivElement>(null);
@@ -68,18 +68,38 @@ export default function TradePage() {
           ref={gridAreaRef}
           className="flex-1 relative overflow-hidden min-h-0"
         >
-          <GameGrid
-            currentPrice={currentPrice}
-            priceHistory={priceHistory}
-            betSize={betSize}
-            timeSlot={timeSlot}
-            baseTimeMs={baseTimeMs}
-            slotProgress={slotProgress}
-            gridRef={gridRef}
-            xAxisRef={xAxisRef}
-            cellWidth={cellWidth}
-            cellHeight={cellHeight}
-          />
+          {currentPrice === 0 ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <div
+                  className="text-sm font-medium mb-2"
+                  style={{ color: timedOut ? "#ef4444" : "#00ff88" }}
+                >
+                  {timedOut
+                    ? "Can't reach Binance — check your connection"
+                    : connected
+                      ? "Waiting for first trade..."
+                      : "Connecting to Binance..."}
+                </div>
+                <div className="text-xs" style={{ color: "#4a7a66" }}>
+                  BTC / USDT
+                </div>
+              </div>
+            </div>
+          ) : (
+            <GameGrid
+              currentPrice={currentPrice}
+              priceHistory={priceHistory}
+              betSize={betSize}
+              timeSlot={timeSlot}
+              baseTimeMs={baseTimeMs}
+              slotProgress={slotProgress}
+              gridRef={gridRef}
+              xAxisRef={xAxisRef}
+              cellWidth={cellWidth}
+              cellHeight={cellHeight}
+            />
+          )}
         </div>
 
         <BottomBar

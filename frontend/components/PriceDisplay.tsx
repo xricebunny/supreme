@@ -17,7 +17,7 @@ export default function PriceDisplay({ price }: PriceDisplayProps) {
           className="text-sm font-medium"
           style={{ color: "#4a7a66" }}
         >
-          FLOW
+          BTC
         </span>
         <span
           className="text-lg font-semibold tabular-nums"

@@ -1,9 +1,35 @@
 /**
- * Format a price for display with 5 decimal places.
- * e.g. 0.03840 → "$0.03840"
+ * Format a price for display with smart decimals and thousands separators.
+ * BTC $96,578.42 → "$96,578.42"
+ * ETH $2,734.18 → "$2,734.18"
+ * SOL $168.35   → "$168.35"
+ * FLOW $0.03870 → "$0.03870"
  */
 export function formatPrice(price: number): string {
+  if (price >= 1) {
+    return `$${price.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  }
+  // Sub-dollar: show 5 decimals to capture micro-movements
   return `$${price.toFixed(5)}`;
+}
+
+/**
+ * Format a price for the Y-axis grid labels.
+ * Uses the grid's priceStep to determine appropriate precision,
+ * and adds thousands separators for large values.
+ */
+export function formatGridPrice(price: number, priceStep: number): string {
+  const decimals = priceStep < 0.001 ? 5 : priceStep < 0.01 ? 4 : priceStep < 0.1 ? 3 : priceStep < 1 ? 2 : 0;
+  if (price >= 1000) {
+    return `$${price.toLocaleString("en-US", {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    })}`;
+  }
+  return `$${price.toFixed(decimals)}`;
 }
 
 /**

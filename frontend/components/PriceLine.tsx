@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { PricePoint } from "@/types";
+import { SAMPLE_INTERVAL_MS } from "@/hooks/useBinancePrice";
 
 interface PriceLineProps {
   priceHistory: PricePoint[];
@@ -67,7 +68,7 @@ export default function PriceLine({
       return { pathData: "", lastPoint: null, dashBreakX: 0 };
 
     const pixelsPerSecond = cellWidth / 5;
-    const secondsPerTick = 0.2; // each data point is 200ms apart
+    const secondsPerTick = SAMPLE_INTERVAL_MS / 1000;
     const centerY = centerPriceY;
     // Offset X by slotProgress so the line advances rightward within a slot.
     // The container's translateX(-panX) pulls it back left, keeping the visual

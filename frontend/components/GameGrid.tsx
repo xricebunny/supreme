@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, RefObject } from "react";
-import { formatPayout, formatTime } from "@/lib/formatters";
+import { useMemo, useRef, RefObject } from "react";
+import { formatPayout, formatTime, formatGridPrice } from "@/lib/formatters";
 import { getMultiplier, getCellPayout } from "@/lib/multiplier";
 import { PricePoint } from "@/types";
 import PriceLine from "@/components/PriceLine";
@@ -9,13 +9,10 @@ import PriceLine from "@/components/PriceLine";
 const VISIBLE_ROWS = 10;
 const GRID_COLS = 21;
 const RENDER_COLS = GRID_COLS + 2; // extra columns to fill the gap during panning
-const PRICE_STEP = 0.00005;
 const CURRENT_TIME_COL = 5;
 
-// Fixed price universe — covers well beyond the simulated range
-const PRICE_MIN = 0.03750;
-const PRICE_MAX = 0.03950;
-const TOTAL_ROWS = Math.round((PRICE_MAX - PRICE_MIN) / PRICE_STEP); // 40 rows
+/** Total rows in the virtual price grid. Current price is always centered. */
+const TOTAL_ROWS = 40;
 
 interface GameGridProps {
   currentPrice: number;
@@ -46,11 +43,26 @@ export default function GameGrid({
   const totalGridHeight = TOTAL_ROWS * cellHeight;
   const visibleHeight = VISIBLE_ROWS * cellHeight;
 
+  // Dynamic price step using 1-2-5 "nice number" series.
+  // Target: price / 10,000 → gives $10 for BTC ($96k), $0.20 for ETH ($2.7k), etc.
+  const rawStep = currentPrice > 0 ? currentPrice / 10000 : 0.00005;
+  const stepExp = Math.floor(Math.log10(rawStep));
+  const stepFrac = rawStep / Math.pow(10, stepExp);
+  const niceMultiplier = stepFrac < 1.5 ? 1 : stepFrac < 3.5 ? 2 : 10;
+  const priceStep = niceMultiplier * Math.pow(10, stepExp);
+
+  // Stable grid anchor — set once on first price, then only re-anchor when price
+  // drifts more than 10 rows away (to prevent the grid origin from shifting every frame,
+  // which would pin the price line to a border instead of floating between rows).
+  const anchorRef = useRef(0);
+  if (anchorRef.current === 0 || Math.abs(currentPrice - anchorRef.current) > priceStep * 10) {
+    anchorRef.current = Math.round(currentPrice / priceStep) * priceStep;
+  }
+  const priceMax = anchorRef.current + (TOTAL_ROWS / 2) * priceStep;
+
   // Which row does the current price fall in?
   // Row 0 = top = highest price, Row N = bottom = lowest price
-  // Each row i covers price range: PRICE_MAX - (i+1)*PRICE_STEP  to  PRICE_MAX - i*PRICE_STEP
-  // i.e. row i's bottom border = PRICE_MAX - (i+1)*PRICE_STEP, top border = PRICE_MAX - i*PRICE_STEP
-  const priceRowExact = (PRICE_MAX - currentPrice) / PRICE_STEP;
+  const priceRowExact = (priceMax - currentPrice) / priceStep;
   const currentPriceRow = Math.floor(priceRowExact);
   const fractionInRow = priceRowExact - currentPriceRow; // 0 = at top border, 1 = at bottom border
 
@@ -133,16 +145,16 @@ export default function GameGrid({
 
   // Price labels at row borders — these are the horizontal grid lines
   // Border i sits between row i-1 (above) and row i (below)
-  // Price at border i = PRICE_MAX - i * PRICE_STEP
+  // Price at border i = priceMax - i * priceStep
   // We show labels for borders within/near the visible range
   const borderLabels = useMemo(() => {
     const labels: { borderIndex: number; price: number }[] = [];
     for (let b = firstVisibleRow; b <= lastVisibleRow + 1; b++) {
-      const price = PRICE_MAX - b * PRICE_STEP;
+      const price = priceMax - b * priceStep;
       labels.push({ borderIndex: b, price });
     }
     return labels;
-  }, [firstVisibleRow, lastVisibleRow]);
+  }, [firstVisibleRow, lastVisibleRow, priceMax, priceStep]);
 
   // Current price badge vertical position (relative to the visible viewport)
   // The price sits at pixel (currentPriceRow + fractionInRow) * cellHeight in full grid coords
@@ -222,7 +234,7 @@ export default function GameGrid({
               cellHeight={cellHeight}
               cellWidth={cellWidth}
               currentTimeCol={CURRENT_TIME_COL}
-              priceStep={PRICE_STEP}
+              priceStep={priceStep}
               centerPriceY={(currentPriceRow + fractionInRow) * cellHeight}
               slotProgress={slotProgress}
             />
@@ -284,7 +296,7 @@ export default function GameGrid({
                   transition: "top 0.3s ease-out",
                 }}
               >
-                ${price.toFixed(5)}
+                {formatGridPrice(price, priceStep)}
               </div>
             );
           })}
@@ -300,7 +312,7 @@ export default function GameGrid({
             zIndex: 30,
           }}
         >
-          ${currentPrice.toFixed(5)}
+          {formatGridPrice(currentPrice, priceStep)}
         </div>
 
         {/* ── X-axis time labels (bottom, rAF-driven via ref) ── */}
