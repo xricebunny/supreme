@@ -45,18 +45,24 @@ export default function GameGrid({
 
   const centerRow = Math.floor(GRID_ROWS / 2);
 
-  // Snap to nearest PRICE_STEP for fixed-interval y-axis labels
-  const snappedCenterPrice = Math.round(currentPrice / PRICE_STEP) * PRICE_STEP;
+  // Floor-snap to the bottom boundary of the current row.
+  // Using Math.floor (not Math.round) ensures border labels land on clean
+  // integer multiples of PRICE_STEP, e.g. $0.03820 / $0.03825, and snap in
+  // sync with panY (both use Math.floor semantics).
+  const snappedRowBase = Math.floor(currentPrice / PRICE_STEP) * PRICE_STEP;
 
-  // Price labels for each row (+1 extra above and below for smooth scrolling)
-  const rowPrices = useMemo(() => {
+  // Top-border price for each row (and one extra row above/below for smooth
+  // scrolling).  Each label sits exactly on a horizontal grid line rather
+  // than floating in the middle of the cell.
+  //   top border of row r = snappedRowBase + (centerRow - r + 1) * PRICE_STEP
+  const rowBorderPrices = useMemo(() => {
     const prices: number[] = [];
     for (let r = -1; r <= GRID_ROWS; r++) {
       const rowOffset = centerRow - r;
-      prices.push(snappedCenterPrice + rowOffset * PRICE_STEP);
+      prices.push(snappedRowBase + (rowOffset + 1) * PRICE_STEP);
     }
     return prices;
-  }, [snappedCenterPrice, centerRow]);
+  }, [snappedRowBase, centerRow]);
 
   // Time labels — pinned to absolute 5-second wall-clock boundaries
   const timeLabels = useMemo(() => {
@@ -219,7 +225,9 @@ export default function GameGrid({
         />
 
 
-        {/* ── Y-axis price labels (right side, Y panning only) ── */}
+        {/* ── Y-axis price labels (right side, pans with grid so they sit on
+             the horizontal grid lines; labels appear at the TOP border of each
+             row, not in the row centre) ── */}
         <div
           className="absolute flex flex-col z-20"
           style={{
@@ -228,12 +236,13 @@ export default function GameGrid({
             top: -cellHeight,
             transform: `translateY(${-clipTop + panY}px)`,
             transition: "transform 0.3s ease-out",
+            pointerEvents: "none",
           }}
         >
-          {rowPrices.map((price, i) => (
+          {rowBorderPrices.map((price, i) => (
             <div
               key={i}
-              className="flex items-center justify-end pr-3 text-xs font-medium tabular-nums"
+              className="flex items-start justify-end pr-3 text-xs font-medium tabular-nums"
               style={{
                 height: cellHeight,
                 color: "#3d5c4d",
