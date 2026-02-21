@@ -18,7 +18,7 @@ export function getMultiplier(rowDist: number, colDist: number): number {
   const timeComponent =
     Math.pow(colDist, timePow) / Math.exp(rowDist * colDecay);
 
-  return Math.min(cap, base * rowComponent * timeComponent);
+  return Math.min(cap, Math.max(1, base * rowComponent * timeComponent));
 }
 
 /**

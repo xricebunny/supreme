@@ -16,6 +16,7 @@ interface GameGridProps {
   betSize: number;
   timeSlot: number;
   baseTimeMs: number;
+  slotProgress: number;
   gridRef: RefObject<HTMLDivElement>;
   xAxisRef: RefObject<HTMLDivElement>;
   cellWidth: number;
@@ -27,6 +28,7 @@ export default function GameGrid({
   betSize,
   timeSlot,
   baseTimeMs,
+  slotProgress,
   gridRef,
   xAxisRef,
   cellWidth,
@@ -89,12 +91,15 @@ export default function GameGrid({
         const isCurrentPrice = r === centerRow;
         const rowDist = Math.abs(r - centerRow);
         const colDist = c - CURRENT_TIME_COL;
+        // Fractional colDist: decreases as slotProgress approaches 1,
+        // so payouts decay smoothly as each time slot nears expiry
+        const effectiveColDist = colDist - slotProgress;
 
         let multiplier = 1;
         let payout = 0;
-        if (colDist > 0) {
-          multiplier = getMultiplier(rowDist, colDist);
-          payout = getCellPayout(betSize, rowDist, colDist);
+        if (effectiveColDist > 0) {
+          multiplier = getMultiplier(rowDist, effectiveColDist);
+          payout = getCellPayout(betSize, rowDist, effectiveColDist);
         }
 
         result.push({
@@ -111,7 +116,7 @@ export default function GameGrid({
       }
     }
     return result;
-  }, [betSize, centerRow]);
+  }, [betSize, centerRow, slotProgress]);
 
   return (
     <div className="relative w-full h-full overflow-hidden">

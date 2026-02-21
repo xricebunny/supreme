@@ -13,10 +13,12 @@ const SLOT_MS = 5000; // 5 seconds per time slot
 export function useAnimationTime(cellWidth: number): {
   timeSlot: number;
   baseTimeMs: number;
+  slotProgress: number;
   gridRef: RefObject<HTMLDivElement>;
   xAxisRef: RefObject<HTMLDivElement>;
 } {
   const [timeSlot, setTimeSlot] = useState(0);
+  const [slotProgress, setSlotProgress] = useState(0);
   // Wall-clock time floored to the nearest 5-second boundary at mount
   const baseTimeMsRef = useRef(Math.floor(Date.now() / SLOT_MS) * SLOT_MS);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -60,5 +62,14 @@ export function useAnimationTime(cellWidth: number): {
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  return { timeSlot, baseTimeMs: baseTimeMsRef.current, gridRef, xAxisRef };
+  // Throttled progress updates (every 200ms) so cell payouts decay smoothly
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - baseTimeMsRef.current;
+      setSlotProgress((elapsed % SLOT_MS) / SLOT_MS);
+    }, 200);
+    return () => clearInterval(interval);
+  }, []);
+
+  return { timeSlot, baseTimeMs: baseTimeMsRef.current, slotProgress, gridRef, xAxisRef };
 }
