@@ -45,15 +45,18 @@ export default function GameGrid({
 
   const centerRow = Math.floor(GRID_ROWS / 2);
 
-  // Price labels for each row
+  // Snap to nearest PRICE_STEP for fixed-interval y-axis labels
+  const snappedCenterPrice = Math.round(currentPrice / PRICE_STEP) * PRICE_STEP;
+
+  // Price labels for each row (+1 extra above and below for smooth scrolling)
   const rowPrices = useMemo(() => {
     const prices: number[] = [];
-    for (let r = 0; r < GRID_ROWS; r++) {
+    for (let r = -1; r <= GRID_ROWS; r++) {
       const rowOffset = centerRow - r;
-      prices.push(currentPrice + rowOffset * PRICE_STEP);
+      prices.push(snappedCenterPrice + rowOffset * PRICE_STEP);
     }
     return prices;
-  }, [currentPrice, centerRow]);
+  }, [snappedCenterPrice, centerRow]);
 
   // Time labels — pinned to absolute 5-second wall-clock boundaries
   const timeLabels = useMemo(() => {
@@ -231,10 +234,11 @@ export default function GameGrid({
 
         {/* ── Y-axis price labels (right side, Y panning only) ── */}
         <div
-          className="absolute top-0 bottom-0 flex flex-col z-20"
+          className="absolute flex flex-col z-20"
           style={{
             right: 0,
             width: 80,
+            top: -cellHeight,
             transform: `translateY(${-clipTop + panY}px)`,
             transition: "transform 0.3s ease-out",
           }}
@@ -245,24 +249,25 @@ export default function GameGrid({
               className="flex items-center justify-end pr-3 text-xs font-medium tabular-nums"
               style={{
                 height: cellHeight,
-                color: i === centerRow ? "#00ff88" : "#3d5c4d",
+                color: "#3d5c4d",
               }}
             >
               ${price.toFixed(5)}
             </div>
           ))}
+        </div>
 
-          {/* Current price badge */}
-          <div
-            className="absolute right-0 px-2 py-1 rounded-l-md text-xs font-bold tabular-nums"
-            style={{
-              top: centerRow * cellHeight + cellHeight / 2 - 12,
-              background: "#00ff88",
-              color: "#0a0f0d",
-            }}
-          >
-            ${currentPrice.toFixed(5)}
-          </div>
+        {/* Current price badge — overlays y-axis at exact price position */}
+        <div
+          className="absolute right-0 px-2 py-1 rounded-l-md text-xs font-bold tabular-nums"
+          style={{
+            top: centerRow * cellHeight - clipTop + cellHeight / 2 - 12,
+            background: "#00ff88",
+            color: "#0a0f0d",
+            zIndex: 30,
+          }}
+        >
+          ${currentPrice.toFixed(5)}
         </div>
 
         {/* ── X-axis time labels (bottom, rAF-driven via ref) ── */}
