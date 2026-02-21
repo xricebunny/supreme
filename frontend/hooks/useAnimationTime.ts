@@ -52,6 +52,7 @@ export function useAnimationTime(cellWidth: number): {
         prevSlot = slot;
         flushSync(() => {
           setTimeSlot(slot);
+          setSlotProgress(progress);
         });
       }
 

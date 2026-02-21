@@ -215,23 +215,7 @@ export default function GameGrid({
               })}
             </div>
 
-          </div>
-        </div>
-
-        {/* ── Price line overlay — fixed horizontally, pans only vertically ── */}
-        <div
-          className="absolute inset-0 pointer-events-none overflow-hidden"
-          style={{ zIndex: 15 }}
-        >
-          <div
-            style={{
-              position: "relative",
-              width: "100%",
-              height: totalGridHeight,
-              transform: `translateY(${translateY}px)`,
-              transition: "transform 0.3s ease-out",
-            }}
-          >
+            {/* Price line — inside panning layers so it scrolls at 60fps */}
             <PriceLine
               priceHistory={priceHistory}
               centerPrice={currentPrice}
@@ -240,6 +224,7 @@ export default function GameGrid({
               currentTimeCol={CURRENT_TIME_COL}
               priceStep={PRICE_STEP}
               centerPriceY={(currentPriceRow + fractionInRow) * cellHeight}
+              slotProgress={slotProgress}
             />
           </div>
         </div>

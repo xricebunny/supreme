@@ -12,6 +12,9 @@ interface PriceLineProps {
   priceStep: number;
   /** The Y pixel position of the current price in the full grid coordinate system */
   centerPriceY: number;
+  /** Progress within the current 5-second slot (0–1), used to offset X so the
+   *  line doesn't jump when the slot boundary resets translateX */
+  slotProgress: number;
 }
 
 /**
@@ -57,6 +60,7 @@ export default function PriceLine({
   currentTimeCol,
   priceStep,
   centerPriceY,
+  slotProgress,
 }: PriceLineProps) {
   const { pathData, lastPoint, dashBreakX } = useMemo(() => {
     if (priceHistory.length < 2)
@@ -65,12 +69,16 @@ export default function PriceLine({
     const pixelsPerSecond = cellWidth / 5;
     const secondsPerTick = 0.2; // each data point is 200ms apart
     const centerY = centerPriceY;
+    // Offset X by slotProgress so the line advances rightward within a slot.
+    // The container's translateX(-panX) pulls it back left, keeping the visual
+    // head position stable. At slot boundaries both reset, so no jump occurs.
+    const slotOffsetX = slotProgress * cellWidth;
 
     const points = priceHistory.map((point, i) => {
       const ticksFromEnd = priceHistory.length - 1 - i;
       const secondsFromEnd = ticksFromEnd * secondsPerTick;
       const x =
-        (currentTimeCol + 0.5) * cellWidth - secondsFromEnd * pixelsPerSecond;
+        (currentTimeCol + 0.5) * cellWidth + slotOffsetX - secondsFromEnd * pixelsPerSecond;
       const priceDiff = point.price - centerPrice;
       const rowOffset = priceDiff / priceStep;
       const y = centerY - rowOffset * cellHeight;
@@ -94,6 +102,7 @@ export default function PriceLine({
     centerPriceY,
     currentTimeCol,
     priceStep,
+    slotProgress,
   ]);
 
   if (!pathData || !lastPoint) return null;
