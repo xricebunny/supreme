@@ -200,6 +200,17 @@ export default function PriceLine({
         filter="url(#beamTipGlow)"
       />
 
+      {/* Pulse ring */}
+      <circle
+        cx={lastPoint.x}
+        cy={lastPoint.y}
+        r="8"
+        fill="none"
+        stroke="rgba(255, 255, 255, 0.3)"
+        strokeWidth="2"
+        className="price-dot-pulse"
+      />
+
       {/* Tip glow halo — soft white light around the dot */}
       <circle
         cx={lastPoint.x}
