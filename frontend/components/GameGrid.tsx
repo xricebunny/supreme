@@ -45,12 +45,14 @@ export default function GameGrid({
 
   const centerRow = Math.floor(GRID_ROWS / 2);
 
-  // Price labels for each row
+  // Price labels for each row — snapped to nearest PRICE_STEP boundary so
+  // labels always show clean intervals like 0.03835, 0.03840, 0.03845
   const rowPrices = useMemo(() => {
     const prices: number[] = [];
+    const snappedPrice = Math.round(currentPrice / PRICE_STEP) * PRICE_STEP;
     for (let r = 0; r < GRID_ROWS; r++) {
       const rowOffset = centerRow - r;
-      prices.push(currentPrice + rowOffset * PRICE_STEP);
+      prices.push(snappedPrice + rowOffset * PRICE_STEP);
     }
     return prices;
   }, [currentPrice, centerRow]);
@@ -245,18 +247,26 @@ export default function GameGrid({
               className="flex items-center justify-end pr-3 text-xs font-medium tabular-nums"
               style={{
                 height: cellHeight,
-                color: i === centerRow ? "#00ff88" : "#3d5c4d",
+                color: "#3d5c4d",
               }}
             >
               ${price.toFixed(5)}
             </div>
           ))}
+        </div>
 
-          {/* Current price badge */}
+        {/* Current price badge — fixed overlay floating on top of y-axis labels */}
+        <div
+          className="absolute right-0 z-30 flex items-center"
+          style={{
+            top: centerRow * cellHeight - clipTop + panY,
+            height: cellHeight,
+            transition: "top 0.3s ease-out",
+          }}
+        >
           <div
-            className="absolute right-0 px-2 py-1 rounded-l-md text-xs font-bold tabular-nums"
+            className="px-2 py-1 rounded-l-md text-xs font-bold tabular-nums"
             style={{
-              top: centerRow * cellHeight + cellHeight / 2 - 12,
               background: "#00ff88",
               color: "#0a0f0d",
             }}
