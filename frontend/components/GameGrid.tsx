@@ -80,6 +80,7 @@ export default function GameGrid({
       isCurrentPrice: boolean;
       rowDist: number;
       colDist: number;
+      effectiveColDist: number;
       multiplier: number;
       payout: number;
     }[] = [];
@@ -110,6 +111,7 @@ export default function GameGrid({
           isCurrentPrice,
           rowDist,
           colDist,
+          effectiveColDist,
           multiplier,
           payout,
         });
@@ -175,7 +177,7 @@ export default function GameGrid({
                       opacity: cell.isPast ? 0.3 : cell.isCurrentTime ? 0.5 : 1,
                     }}
                   >
-                    {isFuture && cell.payout > 0 && (
+                    {isFuture && cell.effectiveColDist > 0 && (
                       <span className="cell-payout">
                         {formatPayout(cell.payout)}
                       </span>
