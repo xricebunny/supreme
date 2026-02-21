@@ -10,6 +10,8 @@ const RENDER_COLS = GRID_COLS + 2; // extra columns to fill the gap during panni
 const PRICE_STEP = 0.00005;
 const CURRENT_TIME_COL = 5;
 const CLIP_FRACTION = 0.33;
+const BUFFER_ROWS = 5; // extra rows above & below visible area
+const TOTAL_ROWS = GRID_ROWS + 2 * BUFFER_ROWS;
 
 interface GameGridProps {
   currentPrice: number;
@@ -36,22 +38,23 @@ export default function GameGrid({
 }: GameGridProps) {
   const gridWidth = RENDER_COLS * cellWidth;
   const gridHeight = GRID_ROWS * cellHeight;
+  const totalHeight = TOTAL_ROWS * cellHeight;
   const clipTop = cellHeight * CLIP_FRACTION;
 
-  // Vertical pan: smooth as price moves between row boundaries
-  const priceInRowUnits = currentPrice / PRICE_STEP;
-  const fractionalRow = priceInRowUnits % 1;
+  // Center row within the total (buffered) grid
+  const centerRow = Math.floor(TOTAL_ROWS / 2);
+  // Center row within the visible area (for fixed overlays like the price badge)
+  const visibleCenterRow = Math.floor(GRID_ROWS / 2);
+
+  // Continuous vertical offset — no snapping, just smooth scrolling
+  const snappedBorderPrice = Math.floor(currentPrice / PRICE_STEP) * PRICE_STEP;
+  const fractionalRow = (currentPrice / PRICE_STEP) % 1;
   const panY = fractionalRow * cellHeight;
 
-  const centerRow = Math.floor(GRID_ROWS / 2);
-
-  // Snap to PRICE_STEP floor for fixed-interval y-axis border labels
-  const snappedBorderPrice = Math.floor(currentPrice / PRICE_STEP) * PRICE_STEP;
-
-  // Border prices at each row boundary (+1 extra above and below for smooth scrolling)
+  // Border prices at each row boundary in the full (buffered) grid
   const borderPrices = useMemo(() => {
     const prices: number[] = [];
-    for (let r = -1; r <= GRID_ROWS; r++) {
+    for (let r = -1; r <= TOTAL_ROWS; r++) {
       const rowOffset = centerRow - r;
       prices.push(snappedBorderPrice + (rowOffset + 1) * PRICE_STEP);
     }
@@ -88,7 +91,7 @@ export default function GameGrid({
       payout: number;
     }[] = [];
 
-    for (let r = 0; r < GRID_ROWS; r++) {
+    for (let r = 0; r < TOTAL_ROWS; r++) {
       for (let c = 0; c < RENDER_COLS; c++) {
         const isPast = c < CURRENT_TIME_COL;
         const isCurrentTime = c === CURRENT_TIME_COL;
@@ -139,14 +142,13 @@ export default function GameGrid({
             willChange: "transform",
           }}
         >
-          {/* Vertical panning sublayer (React-driven, smooth transition) */}
+          {/* Vertical panning sublayer (React-driven, continuous) */}
           <div
             className="relative"
             style={{
               width: gridWidth,
-              height: gridHeight,
-              transform: `translateY(${-clipTop + panY}px)`,
-              transition: "transform 0.3s ease-out",
+              height: totalHeight,
+              transform: `translateY(${-(BUFFER_ROWS * cellHeight + clipTop) + panY}px)`,
             }}
           >
             {/* Grid background lines */}
@@ -167,7 +169,7 @@ export default function GameGrid({
               style={{
                 display: "grid",
                 gridTemplateColumns: `repeat(${RENDER_COLS}, ${cellWidth}px)`,
-                gridTemplateRows: `repeat(${GRID_ROWS}, ${cellHeight}px)`,
+                gridTemplateRows: `repeat(${TOTAL_ROWS}, ${cellHeight}px)`,
               }}
             >
               {cells.map((cell) => {
@@ -226,8 +228,7 @@ export default function GameGrid({
             right: 0,
             width: 80,
             top: -cellHeight * 1.5,
-            transform: `translateY(${-clipTop + panY}px)`,
-            transition: "transform 0.3s ease-out",
+            transform: `translateY(${-(BUFFER_ROWS * cellHeight + clipTop) + panY}px)`,
           }}
         >
           {borderPrices.map((price, i) => (
@@ -248,7 +249,7 @@ export default function GameGrid({
         <div
           className="absolute right-0 px-2 py-1 rounded-l-md text-xs font-bold tabular-nums"
           style={{
-            top: centerRow * cellHeight - clipTop + cellHeight / 2 - 12,
+            top: visibleCenterRow * cellHeight - clipTop + cellHeight / 2 - 12,
             background: "#00ff88",
             color: "#0a0f0d",
             zIndex: 30,
