@@ -45,18 +45,18 @@ export default function GameGrid({
 
   const centerRow = Math.floor(GRID_ROWS / 2);
 
-  // Snap to nearest PRICE_STEP for fixed-interval y-axis labels
-  const snappedCenterPrice = Math.round(currentPrice / PRICE_STEP) * PRICE_STEP;
+  // Snap to PRICE_STEP floor for fixed-interval y-axis border labels
+  const snappedBorderPrice = Math.floor(currentPrice / PRICE_STEP) * PRICE_STEP;
 
-  // Price labels for each row (+1 extra above and below for smooth scrolling)
-  const rowPrices = useMemo(() => {
+  // Border prices at each row boundary (+1 extra above and below for smooth scrolling)
+  const borderPrices = useMemo(() => {
     const prices: number[] = [];
     for (let r = -1; r <= GRID_ROWS; r++) {
       const rowOffset = centerRow - r;
-      prices.push(snappedCenterPrice + rowOffset * PRICE_STEP);
+      prices.push(snappedBorderPrice + (rowOffset + 1) * PRICE_STEP);
     }
     return prices;
-  }, [snappedCenterPrice, centerRow]);
+  }, [snappedBorderPrice, centerRow]);
 
   // Time labels — pinned to absolute 5-second wall-clock boundaries
   const timeLabels = useMemo(() => {
@@ -225,12 +225,12 @@ export default function GameGrid({
           style={{
             right: 0,
             width: 80,
-            top: -cellHeight,
+            top: -cellHeight * 1.5,
             transform: `translateY(${-clipTop + panY}px)`,
             transition: "transform 0.3s ease-out",
           }}
         >
-          {rowPrices.map((price, i) => (
+          {borderPrices.map((price, i) => (
             <div
               key={i}
               className="flex items-center justify-end pr-3 text-xs font-medium tabular-nums"
