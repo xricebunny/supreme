@@ -37,6 +37,9 @@ function generateFlowPriceData(): PricePoint[] {
       price: Math.round(price * 100000) / 100000,
     });
 
+    // ~40% chance price stays flat (sideways movement)
+    if (rand() < 0.4) continue;
+
     // Random walk: slight upward bias for interest
     const direction = rand() < 0.52 ? 1 : -1;
     const magnitude = rand() * stepSize * 2;
