@@ -63,16 +63,13 @@ export default function PriceLine({
   centerPriceY,
   slotProgress,
 }: PriceLineProps) {
-  const { pathData, lastPoint, dashBreakX } = useMemo(() => {
+  const { pathData, lastPoint, firstX, lastX } = useMemo(() => {
     if (priceHistory.length < 2)
-      return { pathData: "", lastPoint: null, dashBreakX: 0 };
+      return { pathData: "", lastPoint: null, firstX: 0, lastX: 0 };
 
     const pixelsPerSecond = cellWidth / 5;
     const secondsPerTick = SAMPLE_INTERVAL_MS / 1000;
     const centerY = centerPriceY;
-    // Offset X by slotProgress so the line advances rightward within a slot.
-    // The container's translateX(-panX) pulls it back left, keeping the visual
-    // head position stable. At slot boundaries both reset, so no jump occurs.
     const slotOffsetX = slotProgress * cellWidth;
 
     const points = priceHistory.map((point, i) => {
@@ -86,15 +83,11 @@ export default function PriceLine({
       return { x, y };
     });
 
-    // The last ~10 seconds are "recent" (solid), everything before is dashed
-    const recentTicks = 50; // 10 seconds × 5 ticks/sec
-    const breakIndex = Math.max(0, points.length - recentTicks);
-    const breakX = points[breakIndex]?.x ?? points[0].x;
-
     const d = catmullRomPath(points);
     const last = points[points.length - 1];
+    const first = points[0];
 
-    return { pathData: d, lastPoint: last, dashBreakX: breakX };
+    return { pathData: d, lastPoint: last, firstX: first.x, lastX: last.x };
   }, [
     priceHistory,
     centerPrice,
@@ -109,7 +102,9 @@ export default function PriceLine({
   if (!pathData || !lastPoint) return null;
 
   const lineColor = "#00ff88";
-  const glowColor = "rgba(0, 255, 136, 0.25)";
+  const gradientId = "priceLineBeamGrad";
+  const glowGradientId = "priceLineGlowGrad";
+  const beamGradientId = "priceLineBeamWhite";
 
   return (
     <svg
@@ -117,97 +112,117 @@ export default function PriceLine({
       style={{ overflow: "visible" }}
     >
       <defs>
-        <filter id="priceLineGlow">
+        {/* Glow blur filter */}
+        <filter id="priceLineGlow" x="-50%" y="-50%" width="200%" height="200%">
           <feGaussianBlur stdDeviation="4" result="blur" />
           <feMerge>
             <feMergeNode in="blur" />
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
-        <filter id="priceDotGlow">
-          <feGaussianBlur stdDeviation="6" result="blur" />
+
+        {/* Intense beam glow at the tip */}
+        <filter id="beamTipGlow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="8" result="blur" />
           <feMerge>
+            <feMergeNode in="blur" />
             <feMergeNode in="blur" />
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
 
-        {/* Gradient: transparent at far left → opaque at current price */}
-        <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor={lineColor} stopOpacity="0.15" />
-          <stop offset="50%" stopColor={lineColor} stopOpacity="0.5" />
-          <stop offset="100%" stopColor={lineColor} stopOpacity="0.85" />
+        {/* Dot glow filter */}
+        <filter id="priceDotGlow" x="-200%" y="-200%" width="500%" height="500%">
+          <feGaussianBlur stdDeviation="5" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+
+        {/* Main line gradient: dim green → full green → white at tip */}
+        <linearGradient id={gradientId} gradientUnits="userSpaceOnUse" x1={firstX} y1="0" x2={lastX} y2="0">
+          <stop offset="0%" stopColor={lineColor} stopOpacity="0.1" />
+          <stop offset="40%" stopColor={lineColor} stopOpacity="0.5" />
+          <stop offset="75%" stopColor={lineColor} stopOpacity="0.9" />
+          <stop offset="92%" stopColor="#80ffbb" stopOpacity="1" />
+          <stop offset="100%" stopColor="#ffffff" stopOpacity="1" />
         </linearGradient>
 
-        {/* Clip rect for the dashed (historical) portion */}
-        <clipPath id="dashClip">
-          <rect x="-9999" y="-9999" width={dashBreakX + 9999} height="99999" />
-        </clipPath>
-        {/* Clip rect for the solid (recent) portion */}
-        <clipPath id="solidClip">
-          <rect x={dashBreakX} y="-9999" width="99999" height="99999" />
-        </clipPath>
+        {/* Glow gradient: same shape but for the blur layer */}
+        <linearGradient id={glowGradientId} gradientUnits="userSpaceOnUse" x1={firstX} y1="0" x2={lastX} y2="0">
+          <stop offset="0%" stopColor={lineColor} stopOpacity="0.05" />
+          <stop offset="50%" stopColor={lineColor} stopOpacity="0.15" />
+          <stop offset="80%" stopColor={lineColor} stopOpacity="0.3" />
+          <stop offset="95%" stopColor="#ffffff" stopOpacity="0.4" />
+          <stop offset="100%" stopColor="#ffffff" stopOpacity="0.5" />
+        </linearGradient>
+
+        {/* Beam overlay gradient: transparent → white at the very tip */}
+        <linearGradient id={beamGradientId} gradientUnits="userSpaceOnUse" x1={firstX} y1="0" x2={lastX} y2="0">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="0" />
+          <stop offset="85%" stopColor="#ffffff" stopOpacity="0" />
+          <stop offset="95%" stopColor="#ffffff" stopOpacity="0.3" />
+          <stop offset="100%" stopColor="#ffffff" stopOpacity="0.7" />
+        </linearGradient>
       </defs>
 
-      {/* Glow layer */}
+      {/* Layer 1: Wide soft glow */}
       <path
         d={pathData}
         fill="none"
-        stroke={glowColor}
-        strokeWidth="7"
+        stroke={`url(#${glowGradientId})`}
+        strokeWidth="10"
         strokeLinecap="round"
         strokeLinejoin="round"
         filter="url(#priceLineGlow)"
       />
 
-      {/* Historical portion — dashed */}
+      {/* Layer 2: Main line — continuous, green → white */}
       <path
         d={pathData}
         fill="none"
-        stroke="url(#lineGradient)"
+        stroke={`url(#${gradientId})`}
         strokeWidth="2.5"
         strokeLinecap="round"
         strokeLinejoin="round"
-        strokeDasharray="6 4"
-        clipPath="url(#dashClip)"
       />
 
-      {/* Recent portion — solid */}
+      {/* Layer 3: White beam overlay at the tip */}
       <path
         d={pathData}
         fill="none"
-        stroke="url(#lineGradient)"
-        strokeWidth="2.5"
+        stroke={`url(#${beamGradientId})`}
+        strokeWidth="3"
         strokeLinecap="round"
         strokeLinejoin="round"
-        clipPath="url(#solidClip)"
+        filter="url(#beamTipGlow)"
       />
 
-      {/* Live price dot — outer pulse ring */}
+      {/* Tip glow halo — soft white light around the dot */}
       <circle
         cx={lastPoint.x}
         cy={lastPoint.y}
-        r="8"
-        fill="none"
-        stroke="rgba(255, 255, 255, 0.3)"
-        strokeWidth="2"
-        className="price-dot-pulse"
-      />
-
-      {/* Live price dot — glow */}
-      <circle
-        cx={lastPoint.x}
-        cy={lastPoint.y}
-        r="6"
-        fill="rgba(255, 255, 255, 0.3)"
+        r="10"
+        fill="rgba(255, 255, 255, 0.12)"
         filter="url(#priceDotGlow)"
       />
 
-      {/* Live price dot — bright core */}
+      {/* Tip dot — bright white core */}
       <circle
         cx={lastPoint.x}
         cy={lastPoint.y}
-        r="4"
+        r="3"
+        fill="#ffffff"
+        filter="url(#priceDotGlow)"
+      />
+
+      {/* Tip dot — crisp center */}
+      <circle
+        cx={lastPoint.x}
+        cy={lastPoint.y}
+        r="2"
         fill="#ffffff"
       />
     </svg>

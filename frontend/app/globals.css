@@ -126,19 +126,3 @@ body {
   fill: none;
   filter: drop-shadow(0 0 6px var(--neon-glow));
 }
-
-/* ===== Price Line Pulse Dot ===== */
-@keyframes priceDotPulse {
-  0%, 100% {
-    r: 6;
-    opacity: 0.4;
-  }
-  50% {
-    r: 12;
-    opacity: 0;
-  }
-}
-
-.price-dot-pulse {
-  animation: priceDotPulse 2s ease-in-out infinite;
-}
