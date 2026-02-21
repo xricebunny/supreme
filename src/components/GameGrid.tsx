@@ -245,11 +245,6 @@ export default function GameGrid({
             }}
           />
 
-          {/* Price row highlight */}
-          <div
-            className="price-row-highlight"
-            style={{ top: priceRow * CELL_H, height: CELL_H }}
-          />
 
           {/* Cells */}
           {Array.from({ length: ROWS * COLS }).map((_, i) => {
