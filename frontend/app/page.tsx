@@ -41,7 +41,16 @@ export default function TradePage() {
       ? cellHeight * (BASE_CELL_WIDTH / BASE_CELL_HEIGHT)
       : BASE_CELL_WIDTH;
 
-  const { timeSlot, baseTimeMs, gridRef, xAxisRef } = useAnimationTime(cellWidth);
+  const {
+    timeSlot,
+    baseTimeMs,
+    displayPrice,
+    gridRef,
+    xAxisRef,
+    verticalRef,
+    yAxisRef,
+    priceHighlightRef,
+  } = useAnimationTime(cellWidth, cellHeight, currentPrice);
 
   return (
     <div
@@ -70,11 +79,15 @@ export default function TradePage() {
         >
           <GameGrid
             currentPrice={currentPrice}
+            displayPrice={displayPrice}
             betSize={betSize}
             timeSlot={timeSlot}
             baseTimeMs={baseTimeMs}
             gridRef={gridRef}
             xAxisRef={xAxisRef}
+            verticalRef={verticalRef}
+            yAxisRef={yAxisRef}
+            priceHighlightRef={priceHighlightRef}
             cellWidth={cellWidth}
             cellHeight={cellHeight}
           />

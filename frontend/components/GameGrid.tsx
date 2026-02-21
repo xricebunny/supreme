@@ -9,49 +9,52 @@ const GRID_COLS = 21;
 const RENDER_COLS = GRID_COLS + 2; // extra columns to fill the gap during panning
 const PRICE_STEP = 0.00005;
 const CURRENT_TIME_COL = 5;
-const CLIP_FRACTION = 0.33;
 
 interface GameGridProps {
   currentPrice: number;
+  /** Animated price used for row labels — kept in sync with vertical pan */
+  displayPrice: number;
   betSize: number;
   timeSlot: number;
   baseTimeMs: number;
   gridRef: RefObject<HTMLDivElement>;
   xAxisRef: RefObject<HTMLDivElement>;
+  verticalRef: RefObject<HTMLDivElement>;
+  yAxisRef: RefObject<HTMLDivElement>;
+  priceHighlightRef: RefObject<HTMLDivElement>;
   cellWidth: number;
   cellHeight: number;
 }
 
 export default function GameGrid({
   currentPrice,
+  displayPrice,
   betSize,
   timeSlot,
   baseTimeMs,
   gridRef,
   xAxisRef,
+  verticalRef,
+  yAxisRef,
+  priceHighlightRef,
   cellWidth,
   cellHeight,
 }: GameGridProps) {
   const gridWidth = RENDER_COLS * cellWidth;
   const gridHeight = GRID_ROWS * cellHeight;
-  const clipTop = cellHeight * CLIP_FRACTION;
-
-  // Vertical pan: smooth as price moves between row boundaries
-  const priceInRowUnits = currentPrice / PRICE_STEP;
-  const fractionalRow = priceInRowUnits % 1;
-  const panY = fractionalRow * cellHeight;
 
   const centerRow = Math.floor(GRID_ROWS / 2);
 
-  // Price labels for each row
+  // Price labels for each row — derived from displayPrice so they stay
+  // synchronised with the rAF-driven vertical pan.
   const rowPrices = useMemo(() => {
     const prices: number[] = [];
     for (let r = 0; r < GRID_ROWS; r++) {
       const rowOffset = centerRow - r;
-      prices.push(currentPrice + rowOffset * PRICE_STEP);
+      prices.push(displayPrice + rowOffset * PRICE_STEP);
     }
     return prices;
-  }, [currentPrice, centerRow]);
+  }, [displayPrice, centerRow]);
 
   // Time labels — pinned to absolute 5-second wall-clock boundaries
   const timeLabels = useMemo(() => {
@@ -129,14 +132,14 @@ export default function GameGrid({
             willChange: "transform",
           }}
         >
-          {/* Vertical panning sublayer (React-driven, smooth transition) */}
+          {/* Vertical panning sublayer (rAF-driven via ref, NO CSS transition) */}
           <div
+            ref={verticalRef}
             className="relative"
             style={{
               width: gridWidth,
               height: gridHeight,
-              transform: `translateY(${-clipTop + panY}px)`,
-              transition: "transform 0.3s ease-out",
+              willChange: "transform",
             }}
           >
             {/* Grid background lines */}
@@ -208,28 +211,27 @@ export default function GameGrid({
           }}
         />
 
-        {/* Current price row highlight — follows Y panning only */}
+        {/* Current price row highlight — rAF positions via ref */}
         <div
+          ref={priceHighlightRef}
           className="absolute left-0 right-0 pointer-events-none"
           style={{
-            top: centerRow * cellHeight - clipTop + panY,
             height: cellHeight,
             background: "rgba(0, 255, 136, 0.06)",
             borderTop: "1px solid rgba(0, 255, 136, 0.2)",
             borderBottom: "1px solid rgba(0, 255, 136, 0.2)",
-            transition: "top 0.3s ease-out",
             zIndex: 10,
           }}
         />
 
-        {/* ── Y-axis price labels (right side, Y panning only) ── */}
+        {/* ── Y-axis price labels (right side, rAF-driven via ref) ── */}
         <div
+          ref={yAxisRef}
           className="absolute top-0 bottom-0 flex flex-col z-20"
           style={{
             right: 0,
             width: 80,
-            transform: `translateY(${-clipTop + panY}px)`,
-            transition: "transform 0.3s ease-out",
+            willChange: "transform",
           }}
         >
           {rowPrices.map((price, i) => (
