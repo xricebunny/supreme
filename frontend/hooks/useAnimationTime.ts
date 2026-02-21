@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, RefObject } from "react";
+import { flushSync } from "react-dom";
 
 const SLOT_MS = 5000; // 5 seconds per time slot
 
@@ -42,10 +43,14 @@ export function useAnimationTime(cellWidth: number): {
         xAxisRef.current.style.transform = `translateX(${-panX}px)`;
       }
 
-      // React state update only on slot boundary (every 5s)
+      // React state update only on slot boundary (every 5s).
+      // flushSync forces synchronous re-render so new labels paint
+      // on the same frame as the transform reset — no flicker.
       if (slot !== prevSlot) {
         prevSlot = slot;
-        setTimeSlot(slot);
+        flushSync(() => {
+          setTimeSlot(slot);
+        });
       }
 
       raf = requestAnimationFrame(animate);
