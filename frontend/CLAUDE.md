@@ -1,9 +1,11 @@
 # CLAUDE.md — Supreme Frontend Spec
 
 ## Project
-Price prediction trading game on Flow blockchain. Desktop-first. Next.js 14, TypeScript, Tailwind CSS, App Router.
+BTC price prediction game on Flow blockchain. Desktop-first. Next.js 14, TypeScript, Tailwind CSS, App Router.
 
-## Color Palette (extracted from src/)
+Contracts deployed on Flow testnet at `0xb36266e524c6c727`: MockPYUSD, PriceOracle, PredictionGame.
+
+## Color Palette
 ```
 --bg-primary:    #0a0f0d    /* Dark green-black background */
 --bg-secondary:  #111a16    /* Slightly lighter dark green */
@@ -49,11 +51,12 @@ Warning amber:   #f59e0b
   Format: HH:MM:SS — e.g. 05:27:30, 05:27:40, 05:27:50
 - Price line: Catmull-Rom spline through history points, dashed (historical) → solid (recent 10s)
   Live dot with pulse animation at current price
-- Font: Inter (imported from Google Fonts) or system-ui fallback
-- Active bet on a cell: cyan (#00e5ff) glow background, shows stake amount + payout
+- Active bet on a cell: cyan (#00e5ff) glow background, shows stake amount + multiplier
+- Won bet: green background, shows "+$XX" payout
+- Lost bet: red background, shows "-$XX" stake
 
 ## Price Data — Live Binance WebSocket
-`frontend/hooks/useBinancePrice.ts`:
+`hooks/useBinancePrice.ts`:
 - Connects to Binance aggTrade WebSocket (`btcusdt@aggTrade`)
 - Trades arrive at irregular intervals — sampled at fixed 200ms into a rolling buffer of 150 points (30s of history)
 - Exports: `SAMPLE_INTERVAL_MS` (200), `useBinancePrice()` → `{ currentPrice, priceHistory, connected, timedOut }`
@@ -84,46 +87,77 @@ function getCellPayout(betSize: number, rowDist: number, colDist: number): numbe
 Display format: under $100 = "+$XX.X", $100-$999 = "+$XXX", $1000+ = "+$X.XXk"
 All values update in real-time as time and price change.
 
+## Bet Lifecycle
+1. **Click cell** → optimistic: cell highlights cyan, balance deducted, bet added to `activeBets`
+2. **Background**: `POST /api/sign-bet` → get multiplier/params → build multi-auth Cadence tx → Magic.link signs (user) + backend signs (admin) → FCL submits to Flow
+3. **Resolution**: when `now >= startTimestamp + 5000` (column's right edge), check Binance price history in `[startTimestamp, startTimestamp + 5000]` against cell's price band
+4. **Win**: price touched band → green flash, balance += payout
+5. **Loss**: price never touched → red fade
+6. **Failed**: tx error → balance restored, cell cleared
+
+Bet statuses: `active | won | lost | failed`. No "pending", "confirming", or "settling" states.
+
+Transaction queue: Magic.link has a single key, so txs are serialized via a promise chain (`txQueueRef`). Optimistic UI is instant regardless.
+
 ## Layout
-- Left sidebar: 200px wide, fixed. Logo top-left. Nav items: Trade (active), Leaderboard (coming soon), Profile (coming soon). Bottom: settings gear + music note icons.
-- Main area: full remaining width × full height. Contains the game grid.
-- Bottom bar: shows current wallet balance (currently hardcoded: "$1,842.50"), and bet size selector with up/down. Bet sizes: $5, $10, $25, $50, $75, $100.
-- Top left of grid area: current BTC price display with smart formatting (thousands separators)
+- Left sidebar: 200px wide, fixed. Logo top-left. Nav items: Trade (active), Leaderboard (coming soon), Profile (coming soon). Bottom: login/logout button.
+- Main area: full remaining width × full height. Top bar: BTC price + PYUSD balance badge + address badge.
+- Grid area: fills remaining space. Cells scale to fill available height.
+- Bottom bar: PYUSD balance, "Fund Demo" button ($1000 PYUSD mint), bet size selector ($5–$100).
 
 ## Component Structure
 ```
 frontend/
 ├── app/
-│   ├── layout.tsx          # root layout
-│   ├── page.tsx            # main trade page
+│   ├── layout.tsx          # root layout, wraps Providers
+│   ├── page.tsx            # TradePage — grid, sidebar, bottom bar, login modal
+│   ├── providers.tsx       # AuthProvider + MagicProvider wrappers
 │   └── globals.css
 ├── components/
-│   ├── GameGrid.tsx        # the main grid (dynamic price step, anchor ref, virtual rows)
-│   ├── GridCell.tsx        # individual cell
-│   ├── PriceLine.tsx       # animated Catmull-Rom price line (dashed→solid)
-│   ├── Sidebar.tsx         # left nav with "coming soon" tooltips
+│   ├── GameGrid.tsx        # 21×10 grid (dynamic price step, anchor ref, virtual rows, bet overlays)
+│   ├── PriceLine.tsx       # Catmull-Rom spline (dashed→solid, live dot)
+│   ├── Sidebar.tsx         # left nav with login button
 │   ├── BottomBar.tsx       # balance + bet size
 │   ├── PriceDisplay.tsx    # top-left BTC price ticker
+│   ├── LoginModal.tsx      # Magic.link email auth
 │   └── Icons.tsx           # SVG icon components
+├── contexts/
+│   ├── AuthProvider.tsx    # Magic.link auth state (address, email, login/logout)
+│   └── MagicProvider.tsx   # Magic SDK initialization
 ├── hooks/
 │   ├── useBinancePrice.ts  # Binance WebSocket, 200ms sampling, auto-reconnect
 │   ├── useAnimationTime.ts # rAF-driven grid panning (60fps, direct DOM manipulation)
-│   └── useGameState.ts     # bet size state
+│   ├── useGameState.ts     # bet size state
+│   ├── useBalance.ts       # PYUSD balance query + optimistic tracking + mint
+│   └── useBetManager.ts    # active bets, optimistic state, expiry resolution, multi-auth tx queue
 ├── lib/
+│   ├── flow.ts             # FCL config (testnet, contract addresses at 0xb36266e524c6c727)
+│   ├── api.ts              # Backend API client (signBet, signTransaction, fundAccount, getPrice)
+│   ├── serverSigner.ts     # FCL serverAuthorization function (calls backend /api/sign)
+│   ├── transactions.ts     # Cadence transaction templates (setup vault, mint PYUSD, open position)
 │   ├── multiplier.ts       # getMultiplier, getCellPayout functions
 │   └── formatters.ts       # formatPrice, formatGridPrice, formatPayout, formatTime, formatBalance
 └── types/
-    └── index.ts            # PricePoint, Cell, Bet interfaces
+    └── index.ts            # PricePoint interface
 ```
 
 ## State — hooks only, no external state library
-- useBinancePrice: WebSocket connection to Binance, 200ms sampling into rolling buffer
-- useAnimationTime: requestAnimationFrame loop driving horizontal grid pan via ref-based DOM updates
-- useGameState: bet size management
+- `useBinancePrice`: WebSocket connection to Binance, 200ms sampling into rolling buffer
+- `useAnimationTime`: requestAnimationFrame loop driving horizontal grid pan via ref-based DOM updates. Triggers React re-render only on slot boundaries (every 5s). Throttled `slotProgress` updates every 200ms for smooth payout decay.
+- `useGameState`: bet size management ($5/$10/$25/$50/$75/$100)
+- `useBalance`: queries on-chain PYUSD balance, tracks optimistic deductions/additions, handles minting via Magic.link-signed tx
+- `useBetManager`: manages `activeBets[]` array, optimistic bet placement, expiry resolution via Binance price history (checks every 200ms), multi-auth tx submission via serialized queue
+
+## Auth — Magic.link
+- `MagicProvider` initializes Magic SDK with Flow extension
+- `AuthProvider` exposes: address, email, login(), logout(), loading
+- Login modal: user enters email → Magic.link passwordless auth → Flow address created
+- `magic.flow.authorization` used as FCL authorizer for user-signed transactions
+- Backend auto-funds new accounts with FLOW for storage (`POST /api/fund-account`)
 
 ## Not Yet Implemented
-- Blockchain / FCL / Flow transactions (contract exists in `cadence/contracts/MicroOptionsMVP.cdc`)
-- Magic.link wallet auth
-- Bet placement interaction (click handlers on grid cells)
-- Real wallet balance (currently hardcoded)
-- Leaderboard or Profile pages
+- Leaderboard page
+- Profile page
+- Sound effects
+- Mobile optimization
+- On-chain balance reconciliation (frontend/chain result comparison)

@@ -1,212 +1,132 @@
-# Supreme - Visual Price Prediction Game
+# Supreme — BTC Price Prediction Game on Flow
 
-Turn price prediction into a spatial game. You don't choose leverage or set limit orders. You place conviction on a grid around a moving price line. The closer you play, the safer you are. The farther you reach, the higher the reward—and the higher the risk.
-
-Built on Flow blockchain.
+Real-time grid-based BTC price prediction game. Click a cell on the price/time grid to bet that BTC will touch that price level within the cell's 5-second window. Instant optimistic UI, on-chain settlement via multi-auth Flow transactions.
 
 ## Quick Start
 
 ```bash
-# Install & run
+# Terminal 1 — Backend (Express + Oracle + Settlement Bot)
+cd backend
+cp .env.example .env   # add your Flow admin private key
+npm install && npm run dev
+
+# Terminal 2 — Frontend (Next.js)
+cd frontend
 npm install && npm run dev
 ```
 
-Open http://localhost:3000 - works immediately in demo mode!
+Frontend: http://localhost:3000 | Backend API: http://localhost:3001
 
-## Features
-
-### Core Gameplay
-- **Price/Time Grid**: 14-row price grid with real-time price movement
-- **Visual Betting**: Tap cells to place bets, see multipliers instantly
-- **Risk = Distance**: Further from price line = higher multiplier = higher risk
-- **Instant Feedback**: Win/loss animations, confetti, screen shake
-
-### User Experience
-- **Onboarding Tutorial**: 6-step interactive guide for new users
-- **Stats Dashboard**: Win rate, profit/loss, streaks, performance metrics
-- **Leaderboard**: Daily/weekly/all-time rankings
-- **Position History**: Track all your settled bets
-- **Sound Effects**: Procedural audio for bets, wins, losses
-- **Haptic Feedback**: Vibration patterns for mobile interactions
-
-### Technical
-- **PWA Support**: Install as mobile app, works offline
-- **Settings Panel**: Toggle sounds, haptics, reset tutorial
-- **On-chain Settlement**: Positions escrowed and settled via oracle
-- **Dual Auth**: Magic.link email + Flow wallets (Blocto, Lilico, Dapper)
-
-## How to Play
-
-| Action | Gesture |
-|--------|---------|
-| Place bet | Tap any grid cell |
-| Stack bet | Tap existing bet cell |
-| Cancel bet | Hold 0.5s (red fill animation) |
-| Change amount | Tap bid pill ($5/$10/$25/$50/$100) |
-
-### Understanding Multipliers
+## Architecture
 
 ```
-Distance from price = Higher multiplier = Higher risk
-
-Safe (close to price):    1.5x - 2.0x
-Medium:                   2.5x - 3.5x
-Risky (far from price):   4.0x - 5.0x+
+┌─────────────┐     ┌─────────────────┐     ┌──────────────────┐
+│   Frontend   │────▶│     Backend      │────▶│   Flow Testnet   │
+│  Next.js 14  │◀────│  Express :3001   │◀────│ 0xb36266e524c6c7 │
+│   :3000      │     │                  │     │                  │
+└──────┬───────┘     │ • Oracle Updater │     │ • MockPYUSD      │
+       │             │ • Settlement Bot │     │ • PriceOracle    │
+       │             │ • Sign API       │     │ • PredictionGame │
+       │             └────────┬─────────┘     └──────────────────┘
+       │                      │
+       ▼                      ▼
+┌─────────────┐     ┌─────────────────┐
+│ Magic.link   │     │    Binance WS    │
+│ (user auth)  │     │ btcusdt@aggTrade │
+└──────────────┘     └─────────────────┘
 ```
 
-## Screenshots
+## How It Works
 
-The grid shows:
-- **Y-axis**: FLOW price levels ($0.50-$1.00)
-- **X-axis**: Time progression
-- **Neon green line**: Current market price
-- **Cyan cells**: Your active bets
+1. User clicks a future cell on the grid (each cell = price band × 5s time window)
+2. Cell highlights instantly (cyan pulse) — optimistic UI, balance deducted
+3. Backend co-signs: `POST /api/sign-bet` → validates params, computes multiplier
+4. Multi-auth Flow tx: Magic.link signs for user, backend signs as admin, backend pays gas
+5. At expiry: frontend checks Binance price history against the cell's price band
+6. Win → green flash, balance credited | Loss → red fade | Failed tx → balance restored
 
-## Tech Stack
+## Smart Contracts (Flow Testnet)
 
-| Layer | Technology |
-|-------|------------|
-| Framework | Next.js 14 (App Router) |
-| UI | React 18 + Tailwind CSS |
-| Animations | Framer Motion + CSS |
-| Blockchain | Flow Testnet + Cadence |
-| Auth | Magic.link + FCL |
-| Audio | Web Audio API |
+All deployed at **`0xb36266e524c6c727`**:
+
+| Contract | Purpose |
+|----------|---------|
+| `MockPYUSD` | FungibleToken with public `mint()` — testnet stablecoin |
+| `PriceOracle` | BTC price history indexed by block height, admin-gated pushPrice |
+| `PredictionGame` | Positions, house vault, multi-auth openPosition, oracle-based settlement |
 
 ## Project Structure
 
 ```
-src/
-├── app/
-│   ├── globals.css       # Theme & component styles
-│   ├── layout.tsx        # PWA config, metadata
-│   └── page.tsx          # Main game orchestration
-├── components/
-│   ├── GameGrid.tsx      # 14x6 betting grid
-│   ├── GameHeader.tsx    # Price display, settings
-│   ├── BottomControls.tsx # Balance, bid, navigation
-│   ├── Confetti.tsx      # Win celebration particles
-│   ├── Onboarding.tsx    # Tutorial overlay
-│   ├── Settings.tsx      # Sound/haptic toggles
-│   ├── StatsDashboard.tsx # Performance metrics
-│   ├── Leaderboard.tsx   # Player rankings
-│   ├── PositionHistory.tsx # Bet history
-│   └── AuthModal.tsx     # Login modal
-├── hooks/
-│   └── index.ts          # useGameState, useAuth, useOracle
-├── lib/
-│   ├── flow.ts           # FCL + contract calls
-│   ├── magic.ts          # Magic.link config
-│   ├── sounds.ts         # Web Audio sound effects
-│   └── haptics.ts        # Vibration API
-└── types/
-    └── index.ts          # TypeScript interfaces
-
-cadence/
-├── contracts/
-│   └── MicroOptionsMVP.cdc
-├── transactions/
-│   ├── openPosition.cdc
-│   ├── settlePosition.cdc
-│   └── cancelPositionAfterTimeout.cdc
-└── scripts/
-    └── getOracleSnapshot.cdc
-
-public/
-├── manifest.json         # PWA manifest
-├── sw.js                 # Service worker
-└── icons/                # App icons
+supreme/
+├── frontend/                   # Next.js 14 + React 18 + Tailwind
+│   ├── app/                    # App Router (layout, page, providers)
+│   ├── components/             # GameGrid, PriceLine, Sidebar, BottomBar, LoginModal
+│   ├── contexts/               # AuthProvider (Magic.link), MagicProvider
+│   ├── hooks/                  # useBinancePrice, useAnimationTime, useBetManager, useBalance
+│   ├── lib/                    # api, flow config, serverSigner, transactions, multiplier, formatters
+│   └── types/
+├── backend/                    # Express + TypeScript
+│   └── src/
+│       ├── index.ts            # Startup: FCL config → oracle → settlement bot → API
+│       ├── api.ts              # REST endpoints (sign-bet, sign, fund-account, price, health)
+│       ├── oracle-updater.ts   # Binance WS → pushPrice tx every ~4s
+│       ├── settlement-bot.ts   # Poll expired positions → settlePosition tx
+│       ├── flow-client.ts      # FCL config, key pool, FlowSigner
+│       └── multiplier.ts       # Payout formula (mirrors frontend)
+├── cadence/
+│   ├── contracts/              # MockPYUSD, PriceOracle, PredictionGame
+│   ├── transactions/           # openPosition, settlePosition, mintPYUSD, pushPrice, etc.
+│   └── scripts/                # getPYUSDBalance, getPosition, listUnsettledExpired, etc.
+└── flow.json                   # Flow CLI config, testnet deployment addresses
 ```
 
-## Design System
+## Tech Stack
 
-| Element | Color | Hex |
-|---------|-------|-----|
-| Background | Dark green-black | `#0a0f0d` |
-| Secondary | Dark teal | `#111a16` |
-| Tertiary | Forest | `#1a2721` |
-| Grid lines | Green border | `#1e3329` |
-| Price line | Neon green | `#00ff88` |
-| Bet cells | Cyan | `#00e5ff` |
-| Win | Green | `#22c55e` |
-| Loss | Red | `#ef4444` |
-| Muted text | Sage | `#4a7a66` |
+| Layer | Tech |
+|-------|------|
+| Frontend | Next.js 14 (App Router), React 18, Tailwind CSS |
+| Backend | Express 4, TypeScript (tsx) |
+| Blockchain | Flow Testnet, Cadence smart contracts |
+| Auth | Magic.link (email → Flow wallet) |
+| Price Feed | Binance WebSocket (`btcusdt@aggTrade`, 200ms sampling) |
+| Signing | ECDSA P256 (elliptic + SHA3) |
 
-## On-chain Architecture
+## API Endpoints
 
-### Trust Boundary
-- UI animations are **indicative only**
-- All funds escrowed **on-chain**
-- Settlement via **Increment oracle**
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/sign-bet` | Validate bet params, compute multiplier, return signed params |
+| POST | `/api/sign` | Sign transaction envelope with admin key (multi-auth) |
+| POST | `/api/fund-account` | Send FLOW to user for storage (once per session) |
+| GET | `/api/price` | Current Binance BTC price + staleness info |
+| GET | `/api/positions/:address` | On-chain positions for a user |
+| GET | `/api/health` | Oracle status, admin address |
 
-### Position Lifecycle
+## Environment Variables
+
+**`backend/.env`** (required):
 ```
-1. OPEN    → User stakes tokens → Contract holds in vault
-2. ACTIVE  → Wait for position duration (60 blocks)
-3. SETTLE  → Oracle price checked → Win/loss determined
-4. PAYOUT  → Winner receives stake × multiplier
-```
-
-### Contract Config
-```
-maxStaleBlocksEntry: 50 blocks (~1 min)
-maxStaleBlocksSettle: 100 blocks (~2 min)
-positionDurationBlocks: 60 blocks (~1.5 min)
-emergencyCancelTimeout: 400 blocks (~10 min)
-
-Multiplier Tiers:
-  Tier 0: 1.15x    Tier 3: 2.50x
-  Tier 1: 1.50x    Tier 4: 3.50x
-  Tier 2: 2.00x    Tier 5+: 5.00x
+FLOW_ADMIN_ADDRESS=0xb36266e524c6c727
+FLOW_ADMIN_PRIVATE_KEY=<admin_private_key>
+FLOW_ACCESS_NODE=https://rest-testnet.onflow.org
+PORT=3001
 ```
 
-## Development
+**Frontend**: Flow config hardcoded in `frontend/lib/flow.ts`. Magic.link API key in `frontend/contexts/MagicProvider.tsx`.
 
-```bash
-# Install dependencies
-npm install
+## Grid Mechanics
 
-# Development server
-npm run dev
+- 21 columns × 10 visible rows, panning left at 60fps via `requestAnimationFrame`
+- Column 5 = current time. Each column = 5 seconds.
+- Price step: dynamic "nice number" series (`currentPrice / 10000` → 1/2/10 rounding). BTC ~$96k → $10 steps.
+- Multiplier: `base * exp(rowDist * rowFactor) * pow(colDist, timePow) / exp(rowDist * colDecay)`, capped at 100x
+- Win condition: any Binance price during the cell's 5-second window falls within the cell's price band
 
-# Production build
-npm run build
+## Trust Model
 
-# Type checking
-npm run lint
-```
+Every bet tx requires **two Flow authorizers**:
+- **User** (Magic.link): authorizes PYUSD withdrawal
+- **Admin** (backend): attests oracle price, validates multiplier, pays gas
 
-### Environment Variables
-
-```bash
-# .env.local
-NEXT_PUBLIC_MAGIC_API_KEY=pk_live_YOUR_KEY
-```
-
-## PWA Installation
-
-### iOS
-1. Open in Safari
-2. Tap Share button
-3. "Add to Home Screen"
-
-### Android
-1. Open in Chrome
-2. Tap menu (⋮)
-3. "Install app" or "Add to Home screen"
-
-## Contributing
-
-1. Fork the repo
-2. Create feature branch (`git checkout -b feature/amazing`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing`)
-5. Open a Pull Request
-
-## License
-
-MIT
-
----
-
-Built with conviction on Flow.
+Neither party can act alone. No on-chain signature verification needed — Flow enforces both signers at the protocol level.
