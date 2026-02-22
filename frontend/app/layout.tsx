@@ -3,8 +3,8 @@ import "./globals.css";
 import Providers from "./providers";
 
 export const metadata: Metadata = {
-  title: "Supreme — FLOW Price Predictions",
-  description: "Price prediction trading game for FLOW token",
+  title: "Supreme — BTC Price Predictions",
+  description: "Real-time BTC price prediction game on Flow",
 };
 
 export default function RootLayout({
