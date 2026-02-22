@@ -39,6 +39,8 @@ interface UseBetManagerReturn {
     colDist: number;
     row: number;
     col: number;
+    colStartTimeMs: number;
+    colEndTimeMs: number;
   }) => void;
 }
 
@@ -50,7 +52,6 @@ export function useBetManager(
   addBalance: (amount: number) => void
 ): UseBetManagerReturn {
   const [activeBets, setActiveBets] = useState<ActiveBet[]>([]);
-  const betsRef = useRef<ActiveBet[]>([]);
 
   // Transaction queue — Magic.link has a single key, so only one tx can be
   // in-flight at a time. The optimistic UI is instant; chain submissions serialize.
@@ -68,80 +69,71 @@ export function useBetManager(
     addBalanceRef.current = addBalance;
   }, [addBalance]);
 
-  useEffect(() => {
-    betsRef.current = activeBets;
-  }, [activeBets]);
-
-  // ── Expiry Resolution ───────────────────────────────────────────────────
+  // ── Expiry Resolution + Cleanup ─────────────────────────────────────────
   // Check active bets every 200ms to see if they've expired.
-  // Uses Binance price history (via ref) to determine win/loss.
+  // Uses functional state update to avoid race conditions with other setActiveBets calls.
+  // Also cleans up resolved bets that have scrolled off the grid (>60s after expiry).
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now();
-      let changed = false;
       const prices = priceHistoryRef.current;
 
-      const updated = betsRef.current.map((bet) => {
-        if (bet.status !== "active") return bet;
-        if (now < bet.expiryTimestamp) return bet;
+      setActiveBets((prev) => {
+        let changed = false;
+        const updated = prev
+          .filter((bet) => {
+            // Remove resolved bets that have scrolled well off-screen
+            if (bet.status !== "active" && now - bet.expiryTimestamp > 60000) {
+              changed = true;
+              return false;
+            }
+            return true;
+          })
+          .map((bet) => {
+            if (bet.status !== "active") return bet;
+            if (now < bet.expiryTimestamp) return bet;
 
-        // Bet has expired — check if price entered the cell's price band
-        // during the cell's time window [startTimestamp, expiryTimestamp]
-        const relevantPrices = prices.filter(
-          (p) => p.timestamp >= bet.startTimestamp && p.timestamp <= bet.expiryTimestamp
-        );
+            // Bet has expired — check if price entered the cell's price band
+            // during the cell's time window [startTimestamp, expiryTimestamp]
+            const relevantPrices = prices.filter(
+              (p) => p.timestamp >= bet.startTimestamp && p.timestamp <= bet.expiryTimestamp
+            );
 
-        // Win if any price falls within the cell's price range
-        let touched = false;
-        for (const p of relevantPrices) {
-          if (p.price >= bet.priceBottom && p.price <= bet.priceTop) {
-            touched = true;
-            break;
-          }
-        }
+            let touched = false;
+            for (const p of relevantPrices) {
+              if (p.price >= bet.priceBottom && p.price <= bet.priceTop) {
+                touched = true;
+                break;
+              }
+            }
 
-        changed = true;
-        if (touched) {
-          addBalanceRef.current(bet.payout);
-          console.log(
-            `[Bet] ✅ WON ${bet.id}: $${bet.betSize} → +$${bet.payout.toFixed(2)} | ` +
-            `BTC in $${bet.priceBottom.toFixed(2)}–$${bet.priceTop.toFixed(2)} (${bet.multiplier.toFixed(2)}x) | ` +
-            `${relevantPrices.length} prices checked`
-          );
-          return { ...bet, status: "won" as BetStatus };
-        } else {
-          console.log(
-            `[Bet] ❌ LOST ${bet.id}: -$${bet.betSize} | ` +
-            `BTC never in $${bet.priceBottom.toFixed(2)}–$${bet.priceTop.toFixed(2)} | ` +
-            `${relevantPrices.length} prices checked, ` +
-            `range: $${relevantPrices.length > 0 ? relevantPrices.reduce((min, p) => Math.min(min, p.price), Infinity).toFixed(2) : "?"} – ` +
-            `$${relevantPrices.length > 0 ? relevantPrices.reduce((max, p) => Math.max(max, p.price), 0).toFixed(2) : "?"}`
-          );
-          return { ...bet, status: "lost" as BetStatus };
-        }
+            changed = true;
+            if (touched) {
+              addBalanceRef.current(bet.payout);
+              console.log(
+                `[Bet] ✅ WON ${bet.id}: $${bet.betSize} → +$${bet.payout.toFixed(2)} | ` +
+                `BTC in $${bet.priceBottom.toFixed(2)}–$${bet.priceTop.toFixed(2)} (${bet.multiplier.toFixed(2)}x) | ` +
+                `${relevantPrices.length} prices checked`
+              );
+              return { ...bet, status: "won" as BetStatus };
+            } else {
+              console.log(
+                `[Bet] ❌ LOST ${bet.id}: -$${bet.betSize} | ` +
+                `BTC never in $${bet.priceBottom.toFixed(2)}–$${bet.priceTop.toFixed(2)} | ` +
+                `${relevantPrices.length} prices checked, ` +
+                `range: $${relevantPrices.length > 0 ? relevantPrices.reduce((min, p) => Math.min(min, p.price), Infinity).toFixed(2) : "?"} – ` +
+                `$${relevantPrices.length > 0 ? relevantPrices.reduce((max, p) => Math.max(max, p.price), 0).toFixed(2) : "?"}`
+              );
+              return { ...bet, status: "lost" as BetStatus };
+            }
+          });
+
+        return changed ? updated : prev;
       });
-
-      if (changed) {
-        setActiveBets(updated);
-      }
     }, 200);
 
     return () => clearInterval(interval);
-  }, []); // stable — reads everything from refs
-
-  // Clean up resolved bets after 8 seconds (keep visible on grid)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setActiveBets((prev) =>
-        prev.filter(
-          (bet) =>
-            bet.status === "active" ||
-            Date.now() - bet.expiryTimestamp < 8000
-        )
-      );
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
+  }, []); // stable — reads prices and addBalance from refs
 
   // ── Place Bet ───────────────────────────────────────────────────────────
   const placeBet = useCallback(
@@ -155,13 +147,17 @@ export function useBetManager(
       colDist: number;
       row: number;
       col: number;
+      colStartTimeMs: number;
+      colEndTimeMs: number;
     }) => {
       if (!userAddress || !magicLinkAuthz) return;
 
       const betId = `bet-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
       const now = Date.now();
+      // startTimestamp is grid-aligned (for column mapping in betPositions)
+      // expiryTimestamp uses wall-clock (for resolution timing — fires when "now" reaches the cell)
+      const startMs = params.colStartTimeMs;
       const expiryMs = now + params.colDist * 5000;
-      const startMs = expiryMs - 5000; // each cell spans 5 seconds
       // Use client-side multiplier estimate for optimistic state
       const estimatedMultiplier = getMultiplier(params.rowDist, params.colDist);
       const payout = params.betSize * estimatedMultiplier;

@@ -37,6 +37,8 @@ interface GameGridProps {
     colDist: number;
     row: number;
     col: number;
+    colStartTimeMs: number;
+    colEndTimeMs: number;
   }) => void;
 }
 
@@ -167,9 +169,10 @@ export default function GameGrid({
     for (const bet of activeBets) {
       // Row from priceTop (top border of the cell's price band)
       const betRow = Math.round((priceMax - bet.priceTop) / priceStep);
-      // Col from expiryTimestamp (ms → render column)
+      // Col from startTimestamp (left edge of cell's time window)
+      // Using startTimestamp avoids rounding errors — it's grid-aligned
       const betCol = Math.round(
-        CURRENT_TIME_COL + (bet.expiryTimestamp - slotBaseMs) / 5000
+        CURRENT_TIME_COL + (bet.startTimestamp - slotBaseMs) / 5000
       );
 
       if (betRow >= 0 && betRow < TOTAL_ROWS && betCol >= 0 && betCol < RENDER_COLS) {
@@ -278,6 +281,11 @@ export default function GameGrid({
                             const priceBottom = priceMax - (cell.row + 1) * priceStep;
                             const targetPrice = (priceTop + priceBottom) / 2; // midpoint for backend
                             const aboveTarget = cell.row < currentPriceRow;
+                            // Compute exact wall-clock timestamps for this column
+                            // to avoid rounding errors when mapping bet back to cell
+                            const slotBase = baseTimeMs + timeSlot * 5000;
+                            const colStartTimeMs = slotBase + (cell.col - CURRENT_TIME_COL) * 5000;
+                            const colEndTimeMs = colStartTimeMs + 5000;
                             onCellClick!({
                               targetPrice,
                               priceTop,
@@ -288,6 +296,8 @@ export default function GameGrid({
                               colDist: Math.max(1, Math.round(cell.effectiveColDist)),
                               row: cell.row,
                               col: cell.col,
+                              colStartTimeMs,
+                              colEndTimeMs,
                             });
                           }
                         : undefined

@@ -88,6 +88,8 @@ export default function TradePage() {
       colDist: number;
       row: number;
       col: number;
+      colStartTimeMs: number;
+      colEndTimeMs: number;
     }) => {
       if (!address || !magicLinkAuthz) {
         openLogin();
