@@ -142,3 +142,56 @@ body {
 .price-dot-pulse {
   animation: priceDotPulse 2s ease-in-out infinite;
 }
+
+/* ===== Toast Slide In ===== */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(100px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes toastGlowGreen {
+  0%, 100% { box-shadow: 0 0 12px rgba(0, 255, 136, 0.3); }
+  50%      { box-shadow: 0 0 24px rgba(0, 255, 136, 0.6), 0 0 48px rgba(0, 255, 136, 0.2); }
+}
+
+@keyframes toastGlowRed {
+  0%, 100% { box-shadow: 0 0 12px rgba(255, 68, 68, 0.3); }
+  50%      { box-shadow: 0 0 24px rgba(255, 68, 68, 0.6), 0 0 48px rgba(255, 68, 68, 0.2); }
+}
+
+/* ===== Bet Cell Result Flash ===== */
+@keyframes cellWinFlash {
+  0%   { background: rgba(0, 255, 136, 0.7); }
+  100% { background: rgba(0, 255, 136, 0.2); }
+}
+
+@keyframes cellLoseFlash {
+  0%   { background: rgba(255, 60, 60, 0.7); }
+  100% { background: rgba(255, 60, 60, 0.2); }
+}
+
+.bet-cell-won {
+  animation: cellWinFlash 0.6s ease-out forwards;
+  border: 2px solid #00ff88 !important;
+  box-shadow: 0 0 16px rgba(0, 255, 136, 0.5), inset 0 0 8px rgba(0, 255, 136, 0.15);
+  z-index: 10;
+}
+
+.bet-cell-lost {
+  animation: cellLoseFlash 0.6s ease-out forwards;
+  border: 2px solid #ff4444 !important;
+  box-shadow: 0 0 16px rgba(255, 68, 68, 0.5), inset 0 0 8px rgba(255, 68, 68, 0.15);
+  z-index: 10;
+}
+
+.bet-cell-active {
+  border: 1px solid #40efff !important;
+  box-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
+  z-index: 8;
+}

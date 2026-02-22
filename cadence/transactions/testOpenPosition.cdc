@@ -2,9 +2,7 @@ import "FungibleToken"
 import "MockPYUSD"
 import "PredictionGame"
 
-/// Multi-auth transaction: user provides PYUSD, admin co-signs.
-/// User = first authorizer (provides the stake from their vault)
-/// Admin = second authorizer (borrows Admin resource to open position)
+/// Test-only: single signer opens a position (admin is both user and admin).
 transaction(
     amount: UFix64,
     targetPrice: UFix64,
@@ -19,17 +17,17 @@ transaction(
     let admin: &PredictionGame.Admin
     let userAddress: Address
 
-    prepare(user: auth(BorrowValue) &Account, admin: auth(BorrowValue) &Account) {
-        // User withdraws PYUSD stake
-        let vaultRef = user.storage.borrow<auth(FungibleToken.Withdraw) &MockPYUSD.Vault>(
+    prepare(signer: auth(BorrowValue) &Account) {
+        // Withdraw PYUSD stake
+        let vaultRef = signer.storage.borrow<auth(FungibleToken.Withdraw) &MockPYUSD.Vault>(
             from: MockPYUSD.VaultStoragePath
-        ) ?? panic("Could not borrow user's PYUSD vault")
+        ) ?? panic("Could not borrow PYUSD vault")
 
         self.userVault <- vaultRef.withdraw(amount: amount) as! @MockPYUSD.Vault
-        self.userAddress = user.address
+        self.userAddress = signer.address
 
-        // Admin borrows the game admin resource
-        self.admin = admin.storage.borrow<&PredictionGame.Admin>(
+        // Borrow admin resource
+        self.admin = signer.storage.borrow<&PredictionGame.Admin>(
             from: PredictionGame.AdminStoragePath
         ) ?? panic("Could not borrow PredictionGame Admin")
     }

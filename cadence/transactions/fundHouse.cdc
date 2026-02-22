@@ -1,23 +1,26 @@
-// fundHouse.cdc
-// Fund the house vault with FlowToken for payouts
+import "FungibleToken"
+import "MockPYUSD"
+import "PredictionGame"
 
-import FungibleToken from 0x9a0766d93b6608b7
-import FlowToken from 0x7e60df042a9c0868
-import MicroOptionsMVP from "../contracts/MicroOptionsMVP.cdc"
-
+/// Admin funds the house vault with PYUSD for payouts.
 transaction(amount: UFix64) {
-    
-    let vault: @FlowToken.Vault
-    
-    prepare(signer: AuthAccount) {
-        // Withdraw from signer's vault
-        let vaultRef = signer.borrow<&FlowToken.Vault>(from: /storage/flowTokenVault)
-            ?? panic("Could not borrow reference to FlowToken vault")
-        
-        self.vault <- vaultRef.withdraw(amount: amount) as! @FlowToken.Vault
+
+    let admin: &PredictionGame.Admin
+    let pyusdVault: @MockPYUSD.Vault
+
+    prepare(signer: auth(BorrowValue) &Account) {
+        self.admin = signer.storage.borrow<&PredictionGame.Admin>(
+            from: PredictionGame.AdminStoragePath
+        ) ?? panic("Could not borrow PredictionGame Admin")
+
+        let vaultRef = signer.storage.borrow<auth(FungibleToken.Withdraw) &MockPYUSD.Vault>(
+            from: MockPYUSD.VaultStoragePath
+        ) ?? panic("Could not borrow PYUSD vault")
+
+        self.pyusdVault <- vaultRef.withdraw(amount: amount) as! @MockPYUSD.Vault
     }
-    
+
     execute {
-        MicroOptionsMVP.fundHouse(from: <-self.vault)
+        self.admin.fundHouse(from: <-self.pyusdVault)
     }
 }

@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useRef, RefObject } from "react";
+import { useMemo, useRef, useCallback, RefObject } from "react";
 import { formatPayout, formatTime, formatGridPrice } from "@/lib/formatters";
 import { getMultiplier, getCellPayout } from "@/lib/multiplier";
 import { PricePoint } from "@/types";
+import { ActiveBet } from "@/hooks/useBetManager";
 import PriceLine from "@/components/PriceLine";
 
 const VISIBLE_ROWS = 10;
@@ -25,6 +26,16 @@ interface GameGridProps {
   xAxisRef: RefObject<HTMLDivElement>;
   cellWidth: number;
   cellHeight: number;
+  activeBets?: ActiveBet[];
+  onCellClick?: (params: {
+    targetPrice: number;
+    aboveTarget: boolean;
+    betSize: number;
+    rowDist: number;
+    colDist: number;
+    row: number;
+    col: number;
+  }) => void;
 }
 
 export default function GameGrid({
@@ -38,6 +49,8 @@ export default function GameGrid({
   xAxisRef,
   cellWidth,
   cellHeight,
+  activeBets = [],
+  onCellClick,
 }: GameGridProps) {
   const gridWidth = RENDER_COLS * cellWidth;
   const totalGridHeight = TOTAL_ROWS * cellHeight;
@@ -143,6 +156,27 @@ export default function GameGrid({
     return result;
   }, [betSize, currentPriceRow, slotProgress, firstVisibleRow, lastVisibleRow]);
 
+  // Precompute bet positions from absolute data (targetPrice + expiryTimestamp)
+  // so they track correctly as the grid scrolls
+  const betPositions = useMemo(() => {
+    const map = new Map<string, ActiveBet>();
+    const slotBaseMs = baseTimeMs + timeSlot * 5000;
+
+    for (const bet of activeBets) {
+      // Row from targetPrice
+      const betRow = Math.round((priceMax - bet.targetPrice) / priceStep);
+      // Col from expiryTimestamp (ms → render column)
+      const betCol = Math.round(
+        CURRENT_TIME_COL + (bet.expiryTimestamp - slotBaseMs) / 5000
+      );
+
+      if (betRow >= 0 && betRow < TOTAL_ROWS && betCol >= 0 && betCol < RENDER_COLS) {
+        map.set(`${betRow}-${betCol}`, bet);
+      }
+    }
+    return map;
+  }, [activeBets, baseTimeMs, timeSlot, priceMax, priceStep]);
+
   // Price labels at row borders — these are the horizontal grid lines
   // Border i sits between row i-1 (above) and row i (below)
   // Price at border i = priceMax - i * priceStep
@@ -204,10 +238,25 @@ export default function GameGrid({
             <div className="absolute inset-0">
               {cells.map((cell) => {
                 const isFuture = cell.colDist > 0;
+                const isClickable = isFuture && cell.effectiveColDist > 0 && !!onCellClick;
+
+                // Check if this cell has an active bet (using precomputed positions)
+                const cellBet = betPositions.get(`${cell.row}-${cell.col}`);
+
+                const betClass = cellBet
+                  ? cellBet.status === "won"
+                    ? "bet-cell-won"
+                    : cellBet.status === "lost"
+                    ? "bet-cell-lost"
+                    : cellBet.status === "active"
+                    ? "bet-cell-active"
+                    : ""
+                  : "";
+
                 return (
                   <div
                     key={`${cell.row}-${cell.col}`}
-                    className="grid-cell"
+                    className={`grid-cell ${betClass} ${isClickable ? "cursor-pointer hover:bg-[#00ff8810]" : ""}`}
                     style={{
                       position: "absolute",
                       left: cell.col * cellWidth,
@@ -215,9 +264,48 @@ export default function GameGrid({
                       width: cellWidth,
                       height: cellHeight,
                       opacity: cell.isPast ? 0.3 : cell.isCurrentTime ? 0.5 : 1,
+                      background: cellBet && cellBet.status === "active"
+                        ? "rgba(0, 200, 255, 0.15)"
+                        : undefined,
                     }}
+                    onClick={
+                      isClickable
+                        ? () => {
+                            const targetPrice =
+                              priceMax - cell.row * priceStep;
+                            const aboveTarget = cell.row < currentPriceRow;
+                            onCellClick!({
+                              targetPrice,
+                              aboveTarget,
+                              betSize,
+                              rowDist: cell.rowDist,
+                              colDist: Math.max(1, Math.round(cell.effectiveColDist)),
+                              row: cell.row,
+                              col: cell.col,
+                            });
+                          }
+                        : undefined
+                    }
                   >
-                    {isFuture && cell.effectiveColDist > 0 && (
+                    {cellBet && cellBet.status === "active" && (
+                      <span className="absolute inset-0 flex flex-col items-center justify-center animate-pulse">
+                        <span className="text-xs font-bold text-cyan-400">${cellBet.betSize}</span>
+                        <span className="text-[9px] text-cyan-300 opacity-70">{cellBet.multiplier.toFixed(1)}x</span>
+                      </span>
+                    )}
+                    {cellBet && cellBet.status === "won" && (
+                      <span className="absolute inset-0 flex flex-col items-center justify-center">
+                        <span className="text-[9px] font-semibold text-green-300 uppercase">Won</span>
+                        <span className="text-sm font-bold text-green-400">+${cellBet.payout.toFixed(0)}</span>
+                      </span>
+                    )}
+                    {cellBet && cellBet.status === "lost" && (
+                      <span className="absolute inset-0 flex flex-col items-center justify-center">
+                        <span className="text-[9px] font-semibold text-red-300 uppercase">Lost</span>
+                        <span className="text-sm font-bold text-red-400">-${cellBet.betSize}</span>
+                      </span>
+                    )}
+                    {!cellBet && isFuture && cell.effectiveColDist > 0 && (
                       <span className="cell-payout">
                         {formatPayout(cell.payout)}
                       </span>

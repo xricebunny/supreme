@@ -1,8 +1,6 @@
-// getPosition.cdc
-// Get a position by ID
+import "PredictionGame"
 
-import MicroOptionsMVP from "../contracts/MicroOptionsMVP.cdc"
-
-pub fun main(positionId: String): MicroOptionsMVP.Position? {
-    return MicroOptionsMVP.getPosition(positionId: positionId)
+/// Get a single position by ID.
+access(all) fun main(positionId: UInt64): PredictionGame.Position? {
+    return PredictionGame.getPosition(positionId: positionId)
 }

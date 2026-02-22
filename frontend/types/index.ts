@@ -24,6 +24,21 @@ export interface Bet {
   status: "pending" | "confirmed" | "settled";
 }
 
+export type BetStatus = "active" | "won" | "lost" | "failed";
+
+export interface ActiveBet {
+  id: string;
+  targetPrice: number;
+  aboveTarget: boolean;
+  multiplier: number;
+  expiryTimestamp: number; // UNIX ms
+  betSize: number;
+  status: BetStatus;
+  row: number;
+  col: number;
+  payout: number;
+}
+
 export interface GameState {
   currentPrice: number;
   currentPriceRow: number;

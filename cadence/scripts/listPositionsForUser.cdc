@@ -1,8 +1,6 @@
-// listPositionsForUser.cdc
-// Get all positions for a user address
+import "PredictionGame"
 
-import MicroOptionsMVP from "../contracts/MicroOptionsMVP.cdc"
-
-pub fun main(address: Address): [MicroOptionsMVP.Position] {
-    return MicroOptionsMVP.listPositionsForUser(address: address)
+/// Get all positions for a user address.
+access(all) fun main(address: Address): [PredictionGame.Position] {
+    return PredictionGame.listUserPositions(address: address)
 }

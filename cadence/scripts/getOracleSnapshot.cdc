@@ -1,28 +1,31 @@
-// getOracleSnapshot.cdc
-// Get latest oracle price and staleness info
+import "PriceOracle"
 
-// import PublicPriceOracle from 0xORACLE_ADDRESS
-
-pub fun main(): {String: AnyStruct} {
+/// Get the latest oracle price and staleness info.
+access(all) fun main(): {String: AnyStruct} {
     let currentBlock = getCurrentBlock().height
-    
-    // TODO: Replace with actual PublicPriceOracle calls
-    // let price = PublicPriceOracle.getLatestPrice()
-    // let updatedAtBlock = PublicPriceOracle.getLatestBlockHeight()
-    
-    // Mock data for hackathon testing
-    let price: UFix64 = 100.50
-    let updatedAtBlock: UInt64 = currentBlock - 10
-    
-    // Calculate staleness (max 50 blocks for entry)
-    let blocksSinceUpdate = currentBlock - updatedAtBlock
-    let isStale = blocksSinceUpdate > 50
-    
+
+    let latest = PriceOracle.getLatestPrice()
+    if latest == nil {
+        return {
+            "price": 0.0 as UFix64,
+            "updatedAtBlock": 0 as UInt64,
+            "currentBlock": currentBlock,
+            "blocksSinceUpdate": currentBlock,
+            "isStale": true,
+            "entryCount": PriceOracle.getEntryCount()
+        }
+    }
+
+    let latestBlock = PriceOracle.latestBlock
+    let blocksSinceUpdate = currentBlock - latestBlock
+
     return {
-        "price": price,
-        "updatedAtBlock": updatedAtBlock,
+        "price": latest!.price,
+        "timestamp": latest!.timestamp,
+        "updatedAtBlock": latestBlock,
         "currentBlock": currentBlock,
         "blocksSinceUpdate": blocksSinceUpdate,
-        "isStale": isStale
+        "isStale": blocksSinceUpdate > 50,
+        "entryCount": PriceOracle.getEntryCount()
     }
 }

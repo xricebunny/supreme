@@ -1,15 +1,19 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+
 import { useBinancePrice } from "@/hooks/useBinancePrice";
 import { useGameState } from "@/hooks/useGameState";
 import { useAnimationTime } from "@/hooks/useAnimationTime";
+import { useBalance } from "@/hooks/useBalance";
+import { useBetManager } from "@/hooks/useBetManager";
 import Sidebar from "@/components/Sidebar";
 import PriceDisplay from "@/components/PriceDisplay";
 import GameGrid from "@/components/GameGrid";
 import BottomBar from "@/components/BottomBar";
 import LoginModal from "@/components/LoginModal";
 import { useAuth } from "@/contexts/AuthProvider";
+import { useMagic } from "@/contexts/MagicProvider";
 
 const GRID_ROWS = 10;
 const BASE_CELL_WIDTH = 72;
@@ -17,8 +21,30 @@ const BASE_CELL_HEIGHT = 56;
 
 export default function TradePage() {
   const { address } = useAuth();
+  const { magic } = useMagic();
   const { currentPrice, priceHistory, connected, timedOut } = useBinancePrice();
   const { betSize, setBetSize } = useGameState(currentPrice);
+
+  // Magic.link authorization function for FCL
+  const magicLinkAuthz = magic?.flow?.authorization;
+
+  // PYUSD balance management (needs authz for minting)
+  const {
+    optimisticBalance,
+    loading: balanceLoading,
+    deductOptimistic,
+    addOptimistic,
+    mintPYUSD,
+  } = useBalance(address, magicLinkAuthz);
+
+  // Bet manager
+  const { activeBets, placeBet } = useBetManager(
+    address,
+    magicLinkAuthz,
+    priceHistory,
+    deductOptimistic,
+    addOptimistic
+  );
 
   const gridAreaRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
@@ -50,6 +76,29 @@ export default function TradePage() {
   const openLogin = useCallback(() => setShowLoginModal(true), []);
   const closeLogin = useCallback(() => setShowLoginModal(false), []);
 
+  // Cell click handler — places a bet
+  const handleCellClick = useCallback(
+    (params: {
+      targetPrice: number;
+      aboveTarget: boolean;
+      betSize: number;
+      rowDist: number;
+      colDist: number;
+      row: number;
+      col: number;
+    }) => {
+      if (!address || !magicLinkAuthz) {
+        openLogin();
+        return;
+      }
+      if (optimisticBalance < params.betSize) {
+        return;
+      }
+      placeBet(params);
+    },
+    [address, magicLinkAuthz, optimisticBalance, placeBet, openLogin]
+  );
+
   return (
     <div
       className="h-screen w-screen overflow-hidden flex"
@@ -68,31 +117,55 @@ export default function TradePage() {
           }}
         >
           <PriceDisplay price={currentPrice} />
-          {address && (
-            <div
-              className="flex items-center gap-2 px-3 py-1.5 rounded-full"
-              style={{
-                background: "#111a16",
-                border: "1px solid #1e3329",
-              }}
-            >
+          <div className="flex items-center gap-3">
+            {address && (
               <div
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full"
                 style={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: "50%",
-                  background: "#00ff88",
-                  flexShrink: 0,
+                  background: "#111a16",
+                  border: "1px solid #1e3329",
                 }}
-              />
-              <span
-                className="text-xs font-mono"
-                style={{ color: "#8ac4a7" }}
               >
-                {address.slice(0, 6)}...{address.slice(-4)}
-              </span>
-            </div>
-          )}
+                <span
+                  className="text-xs font-bold tabular-nums"
+                  style={{ color: "#00ff88" }}
+                >
+                  ${optimisticBalance.toFixed(2)}
+                </span>
+                <span
+                  className="text-[10px]"
+                  style={{ color: "#4a7a66" }}
+                >
+                  PYUSD
+                </span>
+              </div>
+            )}
+            {address && (
+              <div
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full"
+                style={{
+                  background: "#111a16",
+                  border: "1px solid #1e3329",
+                }}
+              >
+                <div
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: "50%",
+                    background: "#00ff88",
+                    flexShrink: 0,
+                  }}
+                />
+                <span
+                  className="text-xs font-mono"
+                  style={{ color: "#8ac4a7" }}
+                >
+                  {address.slice(0, 6)}...{address.slice(-4)}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Grid area — fills remaining space */}
@@ -130,6 +203,8 @@ export default function TradePage() {
               xAxisRef={xAxisRef}
               cellWidth={cellWidth}
               cellHeight={cellHeight}
+              activeBets={activeBets}
+              onCellClick={handleCellClick}
             />
           )}
         </div>
@@ -138,6 +213,9 @@ export default function TradePage() {
           betSize={betSize}
           onBetSizeChange={setBetSize}
           onLoginClick={openLogin}
+          pyusdBalance={optimisticBalance}
+          onFundDemo={mintPYUSD}
+          fundingLoading={balanceLoading}
         />
       </div>
 
