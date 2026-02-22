@@ -2,20 +2,22 @@
 
 import { formatBalance } from "@/lib/formatters";
 import { CoinsIcon, ChipIcon } from "./Icons";
+import { useAuth } from "@/contexts/AuthProvider";
 
 const BET_SIZES = [5, 10, 25, 50, 75, 100];
 
 interface BottomBarProps {
-  balance: number;
   betSize: number;
   onBetSizeChange: (size: number) => void;
+  onLoginClick: () => void;
 }
 
 export default function BottomBar({
-  balance,
   betSize,
   onBetSizeChange,
+  onLoginClick,
 }: BottomBarProps) {
+  const { isLoggedIn, balance } = useAuth();
   const currentIndex = BET_SIZES.indexOf(betSize);
 
   const cycleBetSize = (direction: 1 | -1) => {
@@ -34,18 +36,40 @@ export default function BottomBar({
     >
       {/* Balance */}
       <div className="flex items-center gap-3">
-        <div
-          className="flex items-center gap-2 px-4 py-2 rounded-full"
-          style={{ background: "#111a16" }}
-        >
-          <CoinsIcon size={16} color="#00ff88" />
-          <span
-            className="text-sm font-semibold tabular-nums"
-            style={{ color: "#ffffff" }}
+        {isLoggedIn ? (
+          <div
+            className="flex items-center gap-2 px-4 py-2 rounded-full"
+            style={{ background: "#111a16" }}
           >
-            {formatBalance(balance)}
-          </span>
-        </div>
+            <CoinsIcon size={16} color="#00ff88" />
+            <span
+              className="text-sm font-semibold tabular-nums"
+              style={{ color: "#ffffff" }}
+            >
+              {balance !== null ? formatBalance(balance) : "..."}
+            </span>
+            <span
+              className="text-xs"
+              style={{ color: "#4a7a66" }}
+            >
+              FLOW
+            </span>
+          </div>
+        ) : (
+          <button
+            onClick={onLoginClick}
+            className="flex items-center gap-2 px-4 py-2 rounded-full"
+            style={{
+              background: "#111a16",
+              border: "1px solid #1e3329",
+              color: "#4a7a66",
+              cursor: "pointer",
+              fontSize: 13,
+            }}
+          >
+            Login to bet
+          </button>
+        )}
       </div>
 
       {/* Bet size selector */}

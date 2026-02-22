@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { TradeIcon, TrophyIcon, ProfileIcon, SettingsIcon, MusicIcon } from "./Icons";
+import { useAuth } from "@/contexts/AuthProvider";
 
 const navItems = [
   { icon: TradeIcon, label: "Trade", active: true },
@@ -9,8 +10,13 @@ const navItems = [
   { icon: ProfileIcon, label: "Profile", active: false, tooltip: "Coming Soon" },
 ];
 
-export default function Sidebar() {
+interface SidebarProps {
+  onLoginClick: () => void;
+}
+
+export default function Sidebar({ onLoginClick }: SidebarProps) {
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
+  const { isLoggedIn, isLoading, email, address, logout } = useAuth();
 
   return (
     <aside
@@ -39,7 +45,7 @@ export default function Sidebar() {
       </div>
 
       {/* Nav items */}
-      <nav className="flex-1 flex flex-col gap-1 px-3">
+      <nav className="flex flex-col gap-1 px-3">
         {navItems.map((item) => (
           <div
             key={item.label}
@@ -85,6 +91,94 @@ export default function Sidebar() {
           </div>
         ))}
       </nav>
+
+      {/* Spacer */}
+      <div className="flex-1" />
+
+      {/* Login / Account section */}
+      <div className="px-3 mb-4">
+        {isLoading ? (
+          <div
+            style={{
+              padding: "10px 16px",
+              fontSize: 13,
+              color: "#4a7a66",
+              textAlign: "center",
+            }}
+          >
+            Loading...
+          </div>
+        ) : isLoggedIn ? (
+          <div
+            style={{
+              padding: "10px 12px",
+              background: "#111a16",
+              borderRadius: 8,
+              border: "1px solid #1e3329",
+            }}
+          >
+            <div style={{ fontSize: 11, color: "#4a7a66", marginBottom: 4 }}>
+              Logged in
+            </div>
+            <div
+              style={{
+                fontSize: 13,
+                color: "#ffffff",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {email}
+            </div>
+            {address && (
+              <div
+                style={{
+                  fontSize: 11,
+                  color: "#4a7a66",
+                  marginTop: 2,
+                  fontFamily: "monospace",
+                }}
+              >
+                {address.slice(0, 6)}...{address.slice(-4)}
+              </div>
+            )}
+            <button
+              onClick={logout}
+              style={{
+                marginTop: 8,
+                width: "100%",
+                padding: "6px",
+                background: "transparent",
+                border: "1px solid #1e3329",
+                borderRadius: 6,
+                color: "#4a7a66",
+                fontSize: 12,
+                cursor: "pointer",
+              }}
+            >
+              Logout
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={onLoginClick}
+            style={{
+              width: "100%",
+              padding: "10px 16px",
+              background: "#00ff88",
+              color: "#0a0f0d",
+              border: "none",
+              borderRadius: 8,
+              fontWeight: 600,
+              fontSize: 14,
+              cursor: "pointer",
+            }}
+          >
+            Login
+          </button>
+        )}
+      </div>
 
       {/* Bottom icons */}
       <div className="flex items-center gap-2 px-5 pb-6">

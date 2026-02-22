@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useBinancePrice } from "@/hooks/useBinancePrice";
 import { useGameState } from "@/hooks/useGameState";
 import { useAnimationTime } from "@/hooks/useAnimationTime";
@@ -8,6 +8,7 @@ import Sidebar from "@/components/Sidebar";
 import PriceDisplay from "@/components/PriceDisplay";
 import GameGrid from "@/components/GameGrid";
 import BottomBar from "@/components/BottomBar";
+import LoginModal from "@/components/LoginModal";
 
 const GRID_ROWS = 10;
 const BASE_CELL_WIDTH = 72;
@@ -43,12 +44,16 @@ export default function TradePage() {
 
   const { timeSlot, baseTimeMs, slotProgress, gridRef, xAxisRef } = useAnimationTime(cellWidth);
 
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const openLogin = useCallback(() => setShowLoginModal(true), []);
+  const closeLogin = useCallback(() => setShowLoginModal(false), []);
+
   return (
     <div
       className="h-screen w-screen overflow-hidden flex"
       style={{ background: "#0a0f0d" }}
     >
-      <Sidebar />
+      <Sidebar onLoginClick={openLogin} />
 
       <div className="flex-1 flex flex-col min-w-0 min-h-0">
         {/* Top bar */}
@@ -103,11 +108,13 @@ export default function TradePage() {
         </div>
 
         <BottomBar
-          balance={1842.5}
           betSize={betSize}
           onBetSizeChange={setBetSize}
+          onLoginClick={openLogin}
         />
       </div>
+
+      <LoginModal isOpen={showLoginModal} onClose={closeLogin} />
     </div>
   );
 }
