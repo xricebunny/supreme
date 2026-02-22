@@ -80,6 +80,8 @@ export default function TradePage() {
   const handleCellClick = useCallback(
     (params: {
       targetPrice: number;
+      priceTop: number;
+      priceBottom: number;
       aboveTarget: boolean;
       betSize: number;
       rowDist: number;

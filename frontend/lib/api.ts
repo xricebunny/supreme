@@ -16,6 +16,8 @@ export interface SignResponse {
 
 export async function signBet(params: {
   targetPrice: number;
+  priceTop?: number;
+  priceBottom?: number;
   aboveTarget: boolean;
   betSize: number;
   rowDist: number;

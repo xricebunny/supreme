@@ -29,6 +29,8 @@ interface GameGridProps {
   activeBets?: ActiveBet[];
   onCellClick?: (params: {
     targetPrice: number;
+    priceTop: number;
+    priceBottom: number;
     aboveTarget: boolean;
     betSize: number;
     rowDist: number;
@@ -163,8 +165,8 @@ export default function GameGrid({
     const slotBaseMs = baseTimeMs + timeSlot * 5000;
 
     for (const bet of activeBets) {
-      // Row from targetPrice
-      const betRow = Math.round((priceMax - bet.targetPrice) / priceStep);
+      // Row from priceTop (top border of the cell's price band)
+      const betRow = Math.round((priceMax - bet.priceTop) / priceStep);
       // Col from expiryTimestamp (ms → render column)
       const betCol = Math.round(
         CURRENT_TIME_COL + (bet.expiryTimestamp - slotBaseMs) / 5000
@@ -263,7 +265,7 @@ export default function GameGrid({
                       top: cell.row * cellHeight,
                       width: cellWidth,
                       height: cellHeight,
-                      opacity: cell.isPast ? 0.3 : cell.isCurrentTime ? 0.5 : 1,
+                      opacity: cellBet ? 1 : cell.isPast ? 0.3 : cell.isCurrentTime ? 0.5 : 1,
                       background: cellBet && cellBet.status === "active"
                         ? "rgba(0, 200, 255, 0.15)"
                         : undefined,
@@ -271,11 +273,15 @@ export default function GameGrid({
                     onClick={
                       isClickable
                         ? () => {
-                            const targetPrice =
-                              priceMax - cell.row * priceStep;
+                            // Cell row spans price band: top border → bottom border
+                            const priceTop = priceMax - cell.row * priceStep;
+                            const priceBottom = priceMax - (cell.row + 1) * priceStep;
+                            const targetPrice = (priceTop + priceBottom) / 2; // midpoint for backend
                             const aboveTarget = cell.row < currentPriceRow;
                             onCellClick!({
                               targetPrice,
+                              priceTop,
+                              priceBottom,
                               aboveTarget,
                               betSize,
                               rowDist: cell.rowDist,
@@ -330,18 +336,6 @@ export default function GameGrid({
         </div>
 
         {/* ── Fixed overlays (outside panning container, don't scroll) ── */}
-
-        {/* Past overlay — dims columns left of "now" */}
-        <div
-          className="absolute top-0 bottom-0 pointer-events-none"
-          style={{
-            left: 0,
-            width: (CURRENT_TIME_COL + 1) * cellWidth,
-            background:
-              "linear-gradient(to right, rgba(10, 15, 13, 0.7), rgba(10, 15, 13, 0.3))",
-            zIndex: 10,
-          }}
-        />
 
         {/* Current time separator — fixed vertical line */}
         <div

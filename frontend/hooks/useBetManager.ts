@@ -14,9 +14,12 @@ export type BetStatus = "active" | "won" | "lost" | "failed";
 export interface ActiveBet {
   id: string;
   targetPrice: number;
+  priceTop: number;       // upper bound of the cell's price band
+  priceBottom: number;    // lower bound of the cell's price band
   aboveTarget: boolean;
   multiplier: number;
-  expiryTimestamp: number; // UNIX ms
+  startTimestamp: number; // UNIX ms — start of the cell's time window
+  expiryTimestamp: number; // UNIX ms — end of the cell's time window
   betSize: number;
   status: BetStatus;
   row: number;
@@ -28,6 +31,8 @@ interface UseBetManagerReturn {
   activeBets: ActiveBet[];
   placeBet: (params: {
     targetPrice: number;
+    priceTop: number;
+    priceBottom: number;
     aboveTarget: boolean;
     betSize: number;
     rowDist: number;
@@ -80,19 +85,16 @@ export function useBetManager(
         if (bet.status !== "active") return bet;
         if (now < bet.expiryTimestamp) return bet;
 
-        // Bet has expired — check if price touched target during bet window
-        const betStartMs = bet.expiryTimestamp - (bet.col - 5) * 5000; // approximate start
+        // Bet has expired — check if price entered the cell's price band
+        // during the cell's time window [startTimestamp, expiryTimestamp]
         const relevantPrices = prices.filter(
-          (p) => p.timestamp >= betStartMs && p.timestamp <= bet.expiryTimestamp
+          (p) => p.timestamp >= bet.startTimestamp && p.timestamp <= bet.expiryTimestamp
         );
 
+        // Win if any price falls within the cell's price range
         let touched = false;
         for (const p of relevantPrices) {
-          if (bet.aboveTarget && p.price >= bet.targetPrice) {
-            touched = true;
-            break;
-          }
-          if (!bet.aboveTarget && p.price <= bet.targetPrice) {
+          if (p.price >= bet.priceBottom && p.price <= bet.priceTop) {
             touched = true;
             break;
           }
@@ -103,14 +105,14 @@ export function useBetManager(
           addBalanceRef.current(bet.payout);
           console.log(
             `[Bet] ✅ WON ${bet.id}: $${bet.betSize} → +$${bet.payout.toFixed(2)} | ` +
-            `BTC ${bet.aboveTarget ? "≥" : "≤"} $${bet.targetPrice.toFixed(2)} (${bet.multiplier.toFixed(2)}x) | ` +
+            `BTC in $${bet.priceBottom.toFixed(2)}–$${bet.priceTop.toFixed(2)} (${bet.multiplier.toFixed(2)}x) | ` +
             `${relevantPrices.length} prices checked`
           );
           return { ...bet, status: "won" as BetStatus };
         } else {
           console.log(
             `[Bet] ❌ LOST ${bet.id}: -$${bet.betSize} | ` +
-            `BTC never ${bet.aboveTarget ? "reached" : "dropped to"} $${bet.targetPrice.toFixed(2)} | ` +
+            `BTC never in $${bet.priceBottom.toFixed(2)}–$${bet.priceTop.toFixed(2)} | ` +
             `${relevantPrices.length} prices checked, ` +
             `range: $${relevantPrices.length > 0 ? relevantPrices.reduce((min, p) => Math.min(min, p.price), Infinity).toFixed(2) : "?"} – ` +
             `$${relevantPrices.length > 0 ? relevantPrices.reduce((max, p) => Math.max(max, p.price), 0).toFixed(2) : "?"}`
@@ -145,6 +147,8 @@ export function useBetManager(
   const placeBet = useCallback(
     (params: {
       targetPrice: number;
+      priceTop: number;
+      priceBottom: number;
       aboveTarget: boolean;
       betSize: number;
       rowDist: number;
@@ -155,7 +159,9 @@ export function useBetManager(
       if (!userAddress || !magicLinkAuthz) return;
 
       const betId = `bet-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-      const expiryMs = Date.now() + params.colDist * 5000;
+      const now = Date.now();
+      const expiryMs = now + params.colDist * 5000;
+      const startMs = expiryMs - 5000; // each cell spans 5 seconds
       // Use client-side multiplier estimate for optimistic state
       const estimatedMultiplier = getMultiplier(params.rowDist, params.colDist);
       const payout = params.betSize * estimatedMultiplier;
@@ -164,8 +170,11 @@ export function useBetManager(
       const newBet: ActiveBet = {
         id: betId,
         targetPrice: params.targetPrice,
+        priceTop: params.priceTop,
+        priceBottom: params.priceBottom,
         aboveTarget: params.aboveTarget,
         multiplier: estimatedMultiplier,
+        startTimestamp: startMs,
         expiryTimestamp: expiryMs,
         betSize: params.betSize,
         status: "active",
@@ -178,9 +187,9 @@ export function useBetManager(
       deductBalance(params.betSize);
 
       console.log(
-        `[Bet] PLACED ${betId}: $${params.betSize} on BTC ${params.aboveTarget ? "≥" : "≤"} $${params.targetPrice.toFixed(2)} | ` +
+        `[Bet] PLACED ${betId}: $${params.betSize} on BTC in $${params.priceBottom.toFixed(2)}–$${params.priceTop.toFixed(2)} | ` +
         `${estimatedMultiplier.toFixed(2)}x → $${payout.toFixed(2)} payout | ` +
-        `expires in ${params.colDist * 5}s`
+        `window ${((expiryMs - 5000 - now) / 1000).toFixed(0)}s–${((expiryMs - now) / 1000).toFixed(0)}s from now`
       );
 
       // Queue the on-chain transaction — Magic.link has a single key so
@@ -191,6 +200,8 @@ export function useBetManager(
           // 1. Get backend params
           const betParams = await signBet({
             targetPrice: params.targetPrice,
+            priceTop: params.priceTop,
+            priceBottom: params.priceBottom,
             aboveTarget: params.aboveTarget,
             betSize: params.betSize,
             rowDist: params.rowDist,
@@ -199,6 +210,7 @@ export function useBetManager(
 
           // Update bet with server-computed multiplier (only if still active —
           // the bet may have already resolved locally while queued)
+          const serverExpiryMs = betParams.expiryTimestamp * 1000; // server returns seconds
           setActiveBets((prev) =>
             prev.map((b) =>
               b.id === betId && b.status === "active"
@@ -206,7 +218,8 @@ export function useBetManager(
                     ...b,
                     multiplier: betParams.multiplier,
                     payout: params.betSize * betParams.multiplier,
-                    expiryTimestamp: betParams.expiryTimestamp * 1000, // server returns seconds
+                    startTimestamp: serverExpiryMs - 5000,
+                    expiryTimestamp: serverExpiryMs,
                   }
                 : b
             )

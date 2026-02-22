@@ -54,7 +54,7 @@ export function createApp() {
   // Returns the computed parameters the frontend needs.
   app.post("/api/sign-bet", (req, res) => {
     try {
-      const { targetPrice, aboveTarget, betSize, rowDist, colDist } = req.body;
+      const { targetPrice, priceTop, priceBottom, aboveTarget, betSize, rowDist, colDist } = req.body;
 
       // Validate inputs
       if (!targetPrice || betSize === undefined || rowDist === undefined || colDist === undefined) {
