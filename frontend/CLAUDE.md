@@ -1,7 +1,7 @@
 # CLAUDE.md — Supreme Frontend Spec
 
 ## Project
-Price prediction trading game for FLOW token. Desktop-first. Next.js 14, TypeScript, Tailwind CSS, App Router.
+Price prediction trading game on Flow blockchain. Desktop-first. Next.js 14, TypeScript, Tailwind CSS, App Router.
 
 ## Color Palette (extracted from src/)
 ```
@@ -28,40 +28,37 @@ Warning amber:   #f59e0b
 ```
 
 ## Grid Architecture
-- 21 columns × 10 rows of cells
-- Each cell = 5 seconds (X axis) × $0.00005 price increment (Y axis)
-- Grid does NOT scroll or resize — fixed viewport
-- Top and bottom rows may be partially visible (clipped ~1/3 height)
-- Left ~3 columns sit under the sidebar nav (still rendered, just overlaid)
+- 21 columns × 10 rows of cells (+ 2 extra render columns for panning gap fill)
+- Each cell = 5 seconds (X axis) × dynamic price step (Y axis)
+- Price step uses 1-2-10 "nice number" series: `currentPrice / 10000` rounded to nearest nice number
+  - BTC (~$96k) → $10 steps, ETH (~$2.7k) → $0.20 steps, sub-dollar assets → micro steps
+- Grid pans LEFT as time progresses — 60fps via requestAnimationFrame with direct DOM manipulation
 - Current time is ALWAYS pinned to column 6 from the left
-- As time progresses: the grid pans LEFT — new future columns enter from the right
-- Current price is ALWAYS vertically centered — grid shifts smoothly on Y axis as price moves
+- Current price is ALWAYS vertically centered — smooth Y-axis tracking via CSS translate
+- Stable grid anchor (useRef) prevents price sticking to row borders — only re-anchors when price drifts >10 rows
 - Left of current time column = past (cells dimmed, no interaction)
 - Right of current time column = future (cells active, bettable)
 
 ## Visual Design
 - Dark green-black background (#0a0f0d)
-- Grid cells: subtle #1e3329 border, #111a16 dark fill, dimmer in past columns
+- Grid cells: subtle #1e3329 border, dimmer in past columns
 - Text in cells: neon green (#00ff88) for payout amounts
-- Current price row: slightly highlighted horizontal line with neon-dim glow
-- Current time column: vertical line separator
-- Price labels: Y axis on the RIGHT side, showing price levels every row
+- Current time column: vertical line separator with neon gradient
+- Price labels: Y axis on the RIGHT side, with thousands separators for large values
 - Time labels: X axis on the BOTTOM, label every OTHER column (every 10 seconds)
   Format: HH:MM:SS — e.g. 05:27:30, 05:27:40, 05:27:50
-  Unlabelled columns show no text, just dots at intersections
+- Price line: Catmull-Rom spline through history points, dashed (historical) → solid (recent 10s)
+  Live dot with pulse animation at current price
 - Font: Inter (imported from Google Fonts) or system-ui fallback
-- Cell hover: gradient border highlight that bleeds into adjacent cell borders
-  (think: a subtle glow on borders of the hovered cell + faint extension onto neighboring cell edges)
 - Active bet on a cell: cyan (#00e5ff) glow background, shows stake amount + payout
 
-## Price Data (Session 1 — Simulated)
-`frontend/lib/data.ts` contains:
-- A FLOW price time series array: 60 data points, each 1 second apart
-- Start price: $0.03840
-- Simulate realistic micro-movements: ±$0.00003 per second random walk
-- Export: `flowPriceData: { timestamp: number, price: number }[]`
-- Export: `getCurrentPrice(timestamp: number): number` — interpolates
-- Later this gets replaced with Binance WebSocket feed
+## Price Data — Live Binance WebSocket
+`frontend/hooks/useBinancePrice.ts`:
+- Connects to Binance aggTrade WebSocket (`btcusdt@aggTrade`)
+- Trades arrive at irregular intervals — sampled at fixed 200ms into a rolling buffer of 150 points (30s of history)
+- Exports: `SAMPLE_INTERVAL_MS` (200), `useBinancePrice()` → `{ currentPrice, priceHistory, connected, timedOut }`
+- Auto-reconnects on disconnect (3s delay)
+- Shows timeout warning if no trade arrives within 10s of connecting
 
 ## Multiplier Formula
 Each future cell displays: `+$XX.X` where the dollar amount = betSize × (multiplier - 1)
@@ -85,47 +82,48 @@ function getCellPayout(betSize: number, rowDist: number, colDist: number): numbe
 ```
 
 Display format: under $100 = "+$XX.X", $100-$999 = "+$XXX", $1000+ = "+$X.XXk"
-All values update every second as time and price change.
+All values update in real-time as time and price change.
 
 ## Layout
-- Left sidebar: 200px wide, fixed. Logo top-left. Nav items: Trade (active), Leaderboard, Profile. Icons + labels. Bottom: settings gear + music note icons.
+- Left sidebar: 200px wide, fixed. Logo top-left. Nav items: Trade (active), Leaderboard (coming soon), Profile (coming soon). Bottom: settings gear + music note icons.
 - Main area: full remaining width × full height. Contains the game grid.
-- Bottom bar: shows current wallet balance (simulated: "$1,842.50"), and bet size selector ("🏁 $10" with up/down or click to change). Bet sizes: $5, $10, $25, $50, $75, $100.
-- Top left of grid area: current FLOW price display ("$0.03840" with a small down arrow for dropdown)
-- Top right: (skip for now)
+- Bottom bar: shows current wallet balance (currently hardcoded: "$1,842.50"), and bet size selector with up/down. Bet sizes: $5, $10, $25, $50, $75, $100.
+- Top left of grid area: current BTC price display with smart formatting (thousands separators)
 
 ## Component Structure
 ```
 frontend/
 ├── app/
-│   ├── layout.tsx        # root layout
-│   ├── page.tsx          # main trade page
+│   ├── layout.tsx          # root layout
+│   ├── page.tsx            # main trade page
 │   └── globals.css
 ├── components/
-│   ├── GameGrid.tsx      # the main grid
-│   ├── GridCell.tsx      # individual cell
-│   ├── PriceLine.tsx     # the animated price line path
-│   ├── Sidebar.tsx       # left nav
-│   ├── BottomBar.tsx     # balance + bet size
-│   └── PriceDisplay.tsx  # top-left price ticker
+│   ├── GameGrid.tsx        # the main grid (dynamic price step, anchor ref, virtual rows)
+│   ├── GridCell.tsx        # individual cell
+│   ├── PriceLine.tsx       # animated Catmull-Rom price line (dashed→solid)
+│   ├── Sidebar.tsx         # left nav with "coming soon" tooltips
+│   ├── BottomBar.tsx       # balance + bet size
+│   ├── PriceDisplay.tsx    # top-left BTC price ticker
+│   └── Icons.tsx           # SVG icon components
 ├── hooks/
-│   ├── useGameState.ts   # grid state, current price row/col, time
-│   └── useSimulatedPrice.ts # drives price from data.ts, 1 tick/second
+│   ├── useBinancePrice.ts  # Binance WebSocket, 200ms sampling, auto-reconnect
+│   ├── useAnimationTime.ts # rAF-driven grid panning (60fps, direct DOM manipulation)
+│   └── useGameState.ts     # bet size state
 ├── lib/
-│   ├── data.ts           # simulated FLOW price data
-│   ├── multiplier.ts     # getMultiplier, getCellPayout functions
-│   └── formatters.ts     # price/payout formatting helpers
+│   ├── multiplier.ts       # getMultiplier, getCellPayout functions
+│   └── formatters.ts       # formatPrice, formatGridPrice, formatPayout, formatTime, formatBalance
 └── types/
-    └── index.ts          # Cell, Bet, GameState interfaces
+    └── index.ts            # PricePoint, Cell, Bet interfaces
 ```
 
 ## State — hooks only, no external state library
-useSimulatedPrice: drives a tick every 1 second through data.ts prices
-useGameState: derives currentPriceRow, currentTimeCol, grid offset, visible rows/cols
+- useBinancePrice: WebSocket connection to Binance, 200ms sampling into rolling buffer
+- useAnimationTime: requestAnimationFrame loop driving horizontal grid pan via ref-based DOM updates
+- useGameState: bet size management
 
 ## Not Yet Implemented
-- Blockchain / FCL / Flow transactions
-- Magic.link auth
-- Bet placement interaction (click handlers)
+- Blockchain / FCL / Flow transactions (contract exists in `cadence/contracts/MicroOptionsMVP.cdc`)
+- Magic.link wallet auth
+- Bet placement interaction (click handlers on grid cells)
+- Real wallet balance (currently hardcoded)
 - Leaderboard or Profile pages
-- Real Binance WebSocket (comes in session 2)
