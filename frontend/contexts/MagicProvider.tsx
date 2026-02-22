@@ -22,17 +22,21 @@ export function MagicProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     (async () => {
-      const { Magic } = await import("magic-sdk");
-      const { FlowExtension } = await import("@magic-ext/flow");
-      const m = new Magic("pk_live_1B1561D615BE0919", {
-        extensions: [
-          new FlowExtension({
-            rpcUrl: "https://rest-testnet.onflow.org",
-            network: "testnet",
-          }),
-        ],
-      });
-      setMagic(m);
+      try {
+        const { Magic } = await import("magic-sdk");
+        const { FlowExtension } = await import("@magic-ext/flow");
+        const m = new Magic("pk_live_1B1561D615BE0919", {
+          extensions: [
+            new FlowExtension({
+              rpcUrl: "https://rest-testnet.onflow.org",
+              network: "testnet",
+            }),
+          ],
+        });
+        setMagic(m);
+      } catch (err) {
+        console.error("Failed to initialize Magic:", err);
+      }
     })();
   }, []);
 

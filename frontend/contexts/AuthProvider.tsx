@@ -68,11 +68,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (loggedIn) {
           const metadata = await magic.user.getInfo();
           if (cancelled) return;
+
+          // Get Flow address from the Flow extension (getInfo only returns ETH address)
+          let flowAddress: string | null = null;
+          try {
+            const flowAccount = await magic.flow.getAccount();
+            flowAddress = flowAccount ?? null;
+          } catch {
+            // Flow account not yet created
+          }
+
           setEmail(metadata.email ?? null);
-          setAddress(metadata.publicAddress ?? null);
+          setAddress(flowAddress);
           setIsLoggedIn(true);
-          if (metadata.publicAddress) {
-            await refreshBalance(metadata.publicAddress);
+          if (flowAddress) {
+            await refreshBalance(flowAddress);
           }
         }
       } catch (err) {
@@ -92,11 +102,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await magic.auth.loginWithEmailOTP({ email: emailInput, showUI: true });
       const metadata = await magic.user.getInfo();
+
+      // Get Flow address from the Flow extension (getInfo only returns ETH address)
+      let flowAddress: string | null = null;
+      try {
+        const flowAccount = await magic.flow.getAccount();
+        flowAddress = flowAccount ?? null;
+      } catch {
+        // Flow account not yet created
+      }
+
       setEmail(metadata.email ?? null);
-      setAddress(metadata.publicAddress ?? null);
+      setAddress(flowAddress);
       setIsLoggedIn(true);
-      if (metadata.publicAddress) {
-        await refreshBalance(metadata.publicAddress);
+      if (flowAddress) {
+        await refreshBalance(flowAddress);
       }
     } catch (err) {
       console.error("Login failed:", err);

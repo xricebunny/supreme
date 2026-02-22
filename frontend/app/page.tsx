@@ -9,12 +9,14 @@ import PriceDisplay from "@/components/PriceDisplay";
 import GameGrid from "@/components/GameGrid";
 import BottomBar from "@/components/BottomBar";
 import LoginModal from "@/components/LoginModal";
+import { useAuth } from "@/contexts/AuthProvider";
 
 const GRID_ROWS = 10;
 const BASE_CELL_WIDTH = 72;
 const BASE_CELL_HEIGHT = 56;
 
 export default function TradePage() {
+  const { address } = useAuth();
   const { currentPrice, priceHistory, connected, timedOut } = useBinancePrice();
   const { betSize, setBetSize } = useGameState(currentPrice);
 
@@ -66,6 +68,31 @@ export default function TradePage() {
           }}
         >
           <PriceDisplay price={currentPrice} />
+          {address && (
+            <div
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full"
+              style={{
+                background: "#111a16",
+                border: "1px solid #1e3329",
+              }}
+            >
+              <div
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: "50%",
+                  background: "#00ff88",
+                  flexShrink: 0,
+                }}
+              />
+              <span
+                className="text-xs font-mono"
+                style={{ color: "#8ac4a7" }}
+              >
+                {address.slice(0, 6)}...{address.slice(-4)}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Grid area — fills remaining space */}
