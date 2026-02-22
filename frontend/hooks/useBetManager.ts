@@ -83,7 +83,7 @@ export function useBetManager(
         const updated = prev
           .filter((bet) => {
             // Remove resolved bets that have scrolled well off-screen
-            if (bet.status !== "active" && now - bet.expiryTimestamp > 60000) {
+            if (bet.status !== "active" && now - (bet.startTimestamp + 5000) > 60000) {
               changed = true;
               return false;
             }
@@ -91,12 +91,16 @@ export function useBetManager(
           })
           .map((bet) => {
             if (bet.status !== "active") return bet;
-            if (now < bet.expiryTimestamp) return bet;
+            // Resolve when the grid column's right edge has passed
+            // startTimestamp is the column's left edge (grid-aligned),
+            // so startTimestamp + 5000 is the right edge
+            const colEndMs = bet.startTimestamp + 5000;
+            if (now < colEndMs) return bet;
 
-            // Bet has expired — check if price entered the cell's price band
-            // during the cell's time window [startTimestamp, expiryTimestamp]
+            // Check if price entered the cell's price band during the column's time window
+            // Use grid-aligned boundaries so the window matches exactly what the user sees
             const relevantPrices = prices.filter(
-              (p) => p.timestamp >= bet.startTimestamp && p.timestamp <= bet.expiryTimestamp
+              (p) => p.timestamp >= bet.startTimestamp && p.timestamp <= colEndMs
             );
 
             let touched = false;
@@ -154,10 +158,10 @@ export function useBetManager(
 
       const betId = `bet-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
       const now = Date.now();
-      // startTimestamp is grid-aligned (for column mapping in betPositions)
-      // expiryTimestamp uses wall-clock (for resolution timing — fires when "now" reaches the cell)
+      // startTimestamp is grid-aligned — used for both column mapping AND resolution timing
+      // Resolution fires when now >= startTimestamp + 5000 (column's right edge)
       const startMs = params.colStartTimeMs;
-      const expiryMs = now + params.colDist * 5000;
+      const expiryMs = startMs + 5000;
       // Use client-side multiplier estimate for optimistic state
       const estimatedMultiplier = getMultiplier(params.rowDist, params.colDist);
       const payout = params.betSize * estimatedMultiplier;
@@ -206,7 +210,7 @@ export function useBetManager(
 
           // Update bet with server-computed multiplier (only if still active —
           // the bet may have already resolved locally while queued)
-          const serverExpiryMs = betParams.expiryTimestamp * 1000; // server returns seconds
+          // Keep grid-aligned timestamps — only update multiplier/payout
           setActiveBets((prev) =>
             prev.map((b) =>
               b.id === betId && b.status === "active"
@@ -214,8 +218,6 @@ export function useBetManager(
                     ...b,
                     multiplier: betParams.multiplier,
                     payout: params.betSize * betParams.multiplier,
-                    startTimestamp: serverExpiryMs - 5000,
-                    expiryTimestamp: serverExpiryMs,
                   }
                 : b
             )
