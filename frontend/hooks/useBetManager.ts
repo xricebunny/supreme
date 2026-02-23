@@ -25,6 +25,7 @@ export interface ActiveBet {
   row: number;
   col: number;
   payout: number;
+  resolvedAt?: number; // timestamp when won/lost was determined
 }
 
 interface UseBetManagerReturn {
@@ -122,7 +123,7 @@ export function useBetManager(
                 `BTC in $${bet.priceBottom.toFixed(2)}–$${bet.priceTop.toFixed(2)} (${bet.multiplier.toFixed(2)}x) | ` +
                 `${relevantPrices.length} prices checked`
               );
-              return { ...bet, status: "won" as BetStatus };
+              return { ...bet, status: "won" as BetStatus, resolvedAt: now };
             }
 
             // LOSE: wait until the visual window has fully passed
@@ -136,7 +137,7 @@ export function useBetManager(
               `range: $${relevantPrices.length > 0 ? relevantPrices.reduce((min, p) => Math.min(min, p.price), Infinity).toFixed(2) : "?"} – ` +
               `$${relevantPrices.length > 0 ? relevantPrices.reduce((max, p) => Math.max(max, p.price), 0).toFixed(2) : "?"}`
             );
-            return { ...bet, status: "lost" as BetStatus };
+            return { ...bet, status: "lost" as BetStatus, resolvedAt: now };
           });
 
         return changed ? updated : prev;

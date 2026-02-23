@@ -261,7 +261,7 @@ export default function GameGrid({
 
                 return (
                   <div
-                    key={`${cell.row}-${cell.col}`}
+                    key={cellBet ? cellBet.id : `${cell.row}-${cell.col}`}
                     className={`grid-cell ${betClass} ${isClickable ? "cursor-pointer hover:bg-[#00ff8810]" : ""}`}
                     style={{
                       position: "absolute",
