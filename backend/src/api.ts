@@ -11,6 +11,18 @@ import { executeScript, sendTransaction, ADMIN_ADDRESS, getTotalKeys, fcl } from
 const ec = new EC("p256");
 const ADMIN_PRIVATE_KEY = process.env.FLOW_ADMIN_PRIVATE_KEY!;
 
+// ── Validation Helpers ──────────────────────────────────────────────────────
+
+const FLOW_ADDRESS_RE = /^0x[0-9a-fA-F]{16}$/;
+
+function isValidFlowAddress(addr: string): boolean {
+  return typeof addr === "string" && FLOW_ADDRESS_RE.test(addr);
+}
+
+function isFinitePositive(v: unknown): v is number {
+  return typeof v === "number" && Number.isFinite(v) && v > 0;
+}
+
 // ── Cadence Scripts ─────────────────────────────────────────────────────────
 
 const GET_POSITIONS_CDC = `
@@ -56,21 +68,44 @@ export function createApp() {
     try {
       const { targetPrice, priceTop, priceBottom, aboveTarget, betSize, rowDist, colDist } = req.body;
 
-      // Validate inputs
-      if (!targetPrice || betSize === undefined || rowDist === undefined || colDist === undefined) {
-        return res.status(400).json({ error: "Missing required fields" });
+      // ── Type & presence checks ──
+      if (!isFinitePositive(targetPrice)) {
+        return res.status(400).json({ error: "targetPrice must be a positive number" });
       }
-      if (betSize <= 0) {
-        return res.status(400).json({ error: "betSize must be positive" });
+      if (!isFinitePositive(betSize)) {
+        return res.status(400).json({ error: "betSize must be a positive number" });
       }
-      if (targetPrice <= 0) {
-        return res.status(400).json({ error: "targetPrice must be positive" });
+      if (typeof rowDist !== "number" || !Number.isFinite(rowDist) || rowDist < 0) {
+        return res.status(400).json({ error: "rowDist must be a non-negative number" });
+      }
+      if (typeof colDist !== "number" || !Number.isInteger(colDist) || colDist < 1) {
+        return res.status(400).json({ error: "colDist must be a positive integer" });
+      }
+      if (aboveTarget !== undefined && typeof aboveTarget !== "boolean") {
+        return res.status(400).json({ error: "aboveTarget must be a boolean" });
+      }
+
+      // ── Range bounds ──
+      if (betSize > 10_000) {
+        return res.status(400).json({ error: "betSize cannot exceed 10,000" });
+      }
+      if (colDist > 60) {
+        return res.status(400).json({ error: "colDist cannot exceed 60 (5 minutes)" });
+      }
+      if (rowDist > 20) {
+        return res.status(400).json({ error: "rowDist cannot exceed 20" });
       }
 
       // Get current Binance price as the entry price
       const entryPrice = getLatestBinancePrice();
       if (entryPrice === 0) {
         return res.status(503).json({ error: "Oracle not ready, no Binance price available" });
+      }
+
+      // Sanity: targetPrice shouldn't be wildly far from current price (>50% away)
+      const priceDiffPct = Math.abs(targetPrice - entryPrice) / entryPrice;
+      if (priceDiffPct > 0.5) {
+        return res.status(400).json({ error: "targetPrice too far from current price" });
       }
 
       // Compute multiplier (same formula as frontend)
@@ -101,8 +136,12 @@ export function createApp() {
   app.post("/api/sign", (req, res) => {
     try {
       const { message } = req.body;
-      if (!message) {
-        return res.status(400).json({ error: "Missing message" });
+      if (!message || typeof message !== "string") {
+        return res.status(400).json({ error: "Missing or invalid message" });
+      }
+      // Message should be a hex-encoded string
+      if (!/^[0-9a-fA-F]+$/.test(message)) {
+        return res.status(400).json({ error: "Message must be hex-encoded" });
       }
 
       const signature = signMessage(message);
@@ -125,8 +164,8 @@ export function createApp() {
   app.post("/api/fund-account", async (req, res) => {
     try {
       const { address } = req.body;
-      if (!address) {
-        return res.status(400).json({ error: "Missing address" });
+      if (!address || !isValidFlowAddress(address)) {
+        return res.status(400).json({ error: "Missing or invalid Flow address (expected 0x + 16 hex chars)" });
       }
 
       // Only fund each account once per backend session
@@ -216,6 +255,9 @@ transaction(recipient: Address, amount: UFix64) {
   app.get("/api/positions/:address", async (req, res) => {
     try {
       const { address } = req.params;
+      if (!isValidFlowAddress(address)) {
+        return res.status(400).json({ error: "Invalid Flow address" });
+      }
       const positions = await executeScript(GET_POSITIONS_CDC, (arg: typeof fcl.arg, t: any) => [
         arg(address, t.Address),
       ]);

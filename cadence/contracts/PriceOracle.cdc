@@ -31,8 +31,8 @@ access(all) contract PriceOracle {
     /// Total entries currently stored.
     access(all) var entryCount: UInt64
 
-    /// Maximum allowed percentage change per push (basis points, 500 = 5%).
-    access(all) let maxChangeBps: UInt64
+    /// Maximum allowed percentage change per push (basis points, 5000 = 50%).
+    access(all) var maxChangeBps: UInt64
 
     /// Admin resource storage path.
     access(all) let AdminStoragePath: StoragePath
@@ -49,7 +49,7 @@ access(all) contract PriceOracle {
 
             let blockHeight = getCurrentBlock().height
 
-            // Manipulation guard: reject >5% change from last price (skip on first push)
+            // Manipulation guard: reject change > maxChangeBps from last price (skip on first push)
             if PriceOracle.latestBlock > 0 {
                 if let lastEntry = PriceOracle.priceHistory[PriceOracle.latestBlock] {
                     let lastPrice = lastEntry.price
@@ -68,6 +68,15 @@ access(all) contract PriceOracle {
             PriceOracle.entryCount = PriceOracle.entryCount + 1
 
             emit PricePushed(blockHeight: blockHeight, price: price, timestamp: timestamp)
+        }
+
+        /// Update the max allowed price change per push (in basis points).
+        access(all) fun setMaxChangeBps(bps: UInt64) {
+            pre {
+                bps >= 10: "maxChangeBps must be at least 10 (0.1%)"
+                bps <= 10000: "maxChangeBps cannot exceed 10000 (100%)"
+            }
+            PriceOracle.maxChangeBps = bps
         }
 
         /// Remove all entries with block height < beforeBlock.
@@ -140,7 +149,7 @@ access(all) contract PriceOracle {
         self.priceHistory = {}
         self.latestBlock = 0
         self.entryCount = 0
-        self.maxChangeBps = 5000  // 50% (permissive for testnet)
+        self.maxChangeBps = 5000  // 50%
         self.AdminStoragePath = /storage/priceOracleAdmin
 
         // Create and store the admin resource

@@ -77,9 +77,20 @@ async function settleExpiredPositions() {
         const settledEvent = result.events.find(
           (e: any) => e.type.includes("PositionSettled")
         );
-        const won = settledEvent?.data?.won ?? "unknown";
-        const payout = settledEvent?.data?.payout ?? "0";
-        console.log(`[Settlement] Position ${posId}: won=${won}, payout=${payout}`);
+        if (settledEvent?.data) {
+          const d = settledEvent.data;
+          const wonStr = d.won ? "WON" : "LOST";
+          console.log(
+            `[Settlement] #${posId} ${wonStr} | ` +
+            `owner=${d.owner} stake=$${d.stake} payout=$${d.payout} ` +
+            `multiplier=${d.multiplier}x | ` +
+            `entry=$${d.entryPrice} target=$${d.targetPrice} ` +
+            `above=${d.aboveTarget} touched=$${d.touchedPrice ?? "none"} | ` +
+            `blocks=${d.entryBlock}-${d.expiryBlock} oraclePrices=${d.oraclePriceCount}`
+          );
+        } else {
+          console.log(`[Settlement] Position ${posId}: settled (no event data)`);
+        }
       } catch (err: any) {
         console.error(`[Settlement] Failed position ${pos.id}: ${err.message.slice(0, 150)}`);
       }

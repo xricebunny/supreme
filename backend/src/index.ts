@@ -2,6 +2,7 @@ import "dotenv/config";
 import { configureFCL, detectKeyCount } from "./flow-client.js";
 import { startOracleUpdater } from "./oracle-updater.js";
 import { startSettlementBot } from "./settlement-bot.js";
+import { startHouseFunder } from "./house-funder.js";
 import { createApp } from "./api.js";
 
 const PORT = parseInt(process.env.PORT || "3001");
@@ -36,6 +37,10 @@ async function main() {
   // Start settlement bot (poll expired positions → settle)
   startSettlementBot();
   console.log("[Init] Settlement bot started");
+
+  // Start house funder (auto-mint PYUSD when house balance gets low)
+  startHouseFunder();
+  console.log("[Init] House funder started");
 
   // Start API server
   const app = createApp();

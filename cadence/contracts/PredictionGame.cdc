@@ -1,6 +1,7 @@
 import "FungibleToken"
 import "MockPYUSD"
 import "PriceOracle"
+import "PriceRangeOracle"
 
 /// PredictionGame — grid-based BTC price prediction game.
 /// Users bet that BTC will "touch" a target price before expiry.
@@ -26,10 +27,19 @@ access(all) contract PredictionGame {
     )
     access(all) event PositionSettled(
         positionId: UInt64,
+        owner: Address,
         won: Bool,
+        stake: UFix64,
+        payout: UFix64,
+        multiplier: UFix64,
+        entryPrice: UFix64,
+        targetPrice: UFix64,
+        aboveTarget: Bool,
         touchedPrice: UFix64?,
         touchedAtBlock: UInt64?,
-        payout: UFix64
+        oraclePriceCount: Int,
+        entryBlock: UInt64,
+        expiryBlock: UInt64
     )
     access(all) event PositionCanceled(positionId: UInt64, refund: UFix64)
 
@@ -210,29 +220,57 @@ access(all) contract PredictionGame {
             assert(!position.settled, message: "Position already settled")
             assert(currentBlock >= position.expiryBlock, message: "Position not yet expired")
 
-            // Get all oracle prices during the position's lifetime
+            // Get all oracle price ranges during the position's lifetime.
+            // Ranges contain the high/low of each push interval for accurate touch detection.
+            // Fall back to close prices for entries that predate the range system.
+            let ranges = PriceRangeOracle.getRangesInRange(
+                startBlock: position.entryBlock,
+                endBlock: position.expiryBlock
+            )
             let prices = PriceOracle.getPricesInRange(
                 startBlock: position.entryBlock,
                 endBlock: position.expiryBlock
             )
 
-            // Check if any price "touched" the target
+            // Check if any price range "touched" the target.
+            // For above bets: did the interval high reach the target?
+            // For below bets: did the interval low reach the target?
             var touched = false
             var touchBlock: UInt64? = nil
             var touchPrice: UFix64? = nil
 
-            for priceData in prices {
+            // First check ranges (high/low data — more accurate)
+            for rangeData in ranges {
                 if position.aboveTarget {
-                    if priceData.price >= position.targetPrice {
+                    if rangeData.high >= position.targetPrice {
                         touched = true
-                        touchPrice = priceData.price
+                        touchPrice = rangeData.high
                         break
                     }
                 } else {
-                    if priceData.price <= position.targetPrice {
+                    if rangeData.low <= position.targetPrice {
                         touched = true
-                        touchPrice = priceData.price
+                        touchPrice = rangeData.low
                         break
+                    }
+                }
+            }
+
+            // Fallback: check close prices for legacy entries without range data
+            if !touched {
+                for priceData in prices {
+                    if position.aboveTarget {
+                        if priceData.price >= position.targetPrice {
+                            touched = true
+                            touchPrice = priceData.price
+                            break
+                        }
+                    } else {
+                        if priceData.price <= position.targetPrice {
+                            touched = true
+                            touchPrice = priceData.price
+                            break
+                        }
                     }
                 }
             }
@@ -253,10 +291,19 @@ access(all) contract PredictionGame {
 
             emit PositionSettled(
                 positionId: positionId,
+                owner: position.owner,
                 won: touched,
+                stake: position.stake,
+                payout: payout,
+                multiplier: position.multiplier,
+                entryPrice: position.entryPrice,
+                targetPrice: position.targetPrice,
+                aboveTarget: position.aboveTarget,
                 touchedPrice: touchPrice,
                 touchedAtBlock: touchBlock,
-                payout: payout
+                oraclePriceCount: ranges.length + prices.length,
+                entryBlock: position.entryBlock,
+                expiryBlock: position.expiryBlock
             )
 
             // Transfer payout to winner

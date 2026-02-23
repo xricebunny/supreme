@@ -18,6 +18,7 @@ export function configureFCL() {
     // Contract address mappings — all deployed to admin account
     .put("0xMockPYUSD", ADMIN_ADDRESS)
     .put("0xPriceOracle", ADMIN_ADDRESS)
+    .put("0xPriceRangeOracle", ADMIN_ADDRESS)
     .put("0xPredictionGame", ADMIN_ADDRESS)
     // Standard Flow contracts on testnet
     .put("0xFungibleToken", "0x9a0766d93b6608b7")

@@ -14,22 +14,44 @@ let ws: WebSocket | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let watchdogTimer: ReturnType<typeof setInterval> | null = null;
 
+// ── Interval High/Low Tracking ──────────────────────────────────────────────
+
+let intervalHigh = 0;
+let intervalLow = Infinity;
+
+function resetInterval() {
+  intervalHigh = latestPrice;
+  intervalLow = latestPrice;
+}
+
+function trackPrice(price: number) {
+  if (price > intervalHigh) intervalHigh = price;
+  if (price < intervalLow) intervalLow = price;
+}
+
 // ── Cadence Templates ───────────────────────────────────────────────────────
 
-const PUSH_PRICE_CDC = `
+const PUSH_PRICE_RANGE_CDC = `
 import PriceOracle from 0xPriceOracle
+import PriceRangeOracle from 0xPriceRangeOracle
 
-transaction(price: UFix64, timestamp: UFix64) {
-    let admin: &PriceOracle.Admin
+transaction(high: UFix64, low: UFix64, close: UFix64, timestamp: UFix64) {
+    let oracleAdmin: &PriceOracle.Admin
+    let rangeAdmin: &PriceRangeOracle.Admin
 
     prepare(signer: auth(BorrowValue) &Account) {
-        self.admin = signer.storage.borrow<&PriceOracle.Admin>(
+        self.oracleAdmin = signer.storage.borrow<&PriceOracle.Admin>(
             from: PriceOracle.AdminStoragePath
         ) ?? panic("Could not borrow PriceOracle Admin")
+
+        self.rangeAdmin = signer.storage.borrow<&PriceRangeOracle.Admin>(
+            from: PriceRangeOracle.AdminStoragePath
+        ) ?? panic("Could not borrow PriceRangeOracle Admin")
     }
 
     execute {
-        self.admin.pushPrice(price: price, timestamp: timestamp)
+        self.oracleAdmin.pushPrice(price: close, timestamp: timestamp)
+        self.rangeAdmin.pushRange(high: high, low: low)
     }
 }
 `;
@@ -41,9 +63,9 @@ function toUFix64(value: number): string {
   return value.toFixed(8);
 }
 
-// ── Push Price to Oracle ────────────────────────────────────────────────────
+// ── Push Price Range to Oracle ──────────────────────────────────────────────
 
-async function pushPrice(price: number, timestamp: number): Promise<void> {
+async function pushPriceRange(high: number, low: number, close: number, timestamp: number): Promise<void> {
   if (isPushing) {
     // Check for stuck push — if it's been running longer than PUSH_TIMEOUT_MS, force-reset
     if (Date.now() - pushStartTime > PUSH_TIMEOUT_MS) {
@@ -58,13 +80,15 @@ async function pushPrice(price: number, timestamp: number): Promise<void> {
 
   try {
     const result = await sendTransaction(
-      PUSH_PRICE_CDC,
+      PUSH_PRICE_RANGE_CDC,
       (arg: typeof fcl.arg) => [
-        arg(toUFix64(price), t.UFix64),
+        arg(toUFix64(high), t.UFix64),
+        arg(toUFix64(low), t.UFix64),
+        arg(toUFix64(close), t.UFix64),
         arg(toUFix64(timestamp), t.UFix64),
       ]
     );
-    console.log(`[Oracle] Pushed $${price.toFixed(2)} (tx: ${result.txId.slice(0, 8)}...)`);
+    console.log(`[Oracle] Pushed H=$${high.toFixed(2)} L=$${low.toFixed(2)} C=$${close.toFixed(2)} (tx: ${result.txId.slice(0, 8)}...)`);
     lastPushTime = Date.now();
   } catch (err: any) {
     // Only log meaningful errors, not "keys busy"
@@ -95,14 +119,29 @@ function connectBinance() {
   ws.on("message", (data: WebSocket.Data) => {
     try {
       const trade = JSON.parse(data.toString());
-      latestPrice = parseFloat(trade.p);
+      const price = parseFloat(trade.p);
+      latestPrice = price;
       lastPriceUpdateTime = Date.now();
+
+      // Track high/low for this interval
+      if (intervalHigh === 0) {
+        // First price after reset or startup
+        intervalHigh = price;
+        intervalLow = price;
+      } else {
+        trackPrice(price);
+      }
 
       // Push at interval, only if not already pushing
       const now = Date.now();
       if (now - lastPushTime >= PUSH_INTERVAL_MS && !isPushing) {
         const timestamp = Math.floor(trade.T / 1000);
-        pushPrice(latestPrice, timestamp);
+        const pushHigh = intervalHigh;
+        const pushLow = intervalLow;
+        const pushClose = price;
+        // Reset interval tracking for next window
+        resetInterval();
+        pushPriceRange(pushHigh, pushLow, pushClose, timestamp);
       }
     } catch {}
   });
