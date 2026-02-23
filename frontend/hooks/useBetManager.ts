@@ -91,16 +91,12 @@ export function useBetManager(
           })
           .map((bet) => {
             if (bet.status !== "active") return bet;
-            // Resolve when the grid column's right edge has passed
-            // startTimestamp is the column's left edge (grid-aligned),
-            // so startTimestamp + 5000 is the right edge
-            const colEndMs = bet.startTimestamp + 5000;
-            if (now < colEndMs) return bet;
 
-            // Check if price entered the cell's price band during the column's time window
-            // Use grid-aligned boundaries so the window matches exactly what the user sees
+            const colEndMs = bet.startTimestamp + 5000;
+
+            // Check all prices from bet start up to now (capped at column end)
             const relevantPrices = prices.filter(
-              (p) => p.timestamp >= bet.startTimestamp && p.timestamp <= colEndMs
+              (p) => p.timestamp >= bet.startTimestamp && p.timestamp <= Math.min(now, colEndMs)
             );
 
             let touched = false;
@@ -111,8 +107,9 @@ export function useBetManager(
               }
             }
 
-            changed = true;
+            // WIN: resolve immediately when price touches the cell (don't wait for column end)
             if (touched) {
+              changed = true;
               addBalanceRef.current(bet.payout);
               console.log(
                 `[Bet] ✅ WON ${bet.id}: $${bet.betSize} → +$${bet.payout.toFixed(2)} | ` +
@@ -120,16 +117,20 @@ export function useBetManager(
                 `${relevantPrices.length} prices checked`
               );
               return { ...bet, status: "won" as BetStatus };
-            } else {
-              console.log(
-                `[Bet] ❌ LOST ${bet.id}: -$${bet.betSize} | ` +
-                `BTC never in $${bet.priceBottom.toFixed(2)}–$${bet.priceTop.toFixed(2)} | ` +
-                `${relevantPrices.length} prices checked, ` +
-                `range: $${relevantPrices.length > 0 ? relevantPrices.reduce((min, p) => Math.min(min, p.price), Infinity).toFixed(2) : "?"} – ` +
-                `$${relevantPrices.length > 0 ? relevantPrices.reduce((max, p) => Math.max(max, p.price), 0).toFixed(2) : "?"}`
-              );
-              return { ...bet, status: "lost" as BetStatus };
             }
+
+            // LOSE: wait until column's right edge has fully passed
+            if (now < colEndMs) return bet;
+
+            changed = true;
+            console.log(
+              `[Bet] ❌ LOST ${bet.id}: -$${bet.betSize} | ` +
+              `BTC never in $${bet.priceBottom.toFixed(2)}–$${bet.priceTop.toFixed(2)} | ` +
+              `${relevantPrices.length} prices checked, ` +
+              `range: $${relevantPrices.length > 0 ? relevantPrices.reduce((min, p) => Math.min(min, p.price), Infinity).toFixed(2) : "?"} – ` +
+              `$${relevantPrices.length > 0 ? relevantPrices.reduce((max, p) => Math.max(max, p.price), 0).toFixed(2) : "?"}`
+            );
+            return { ...bet, status: "lost" as BetStatus };
           });
 
         return changed ? updated : prev;
