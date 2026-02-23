@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
+import { flushSync } from "react-dom";
 import * as fcl from "@onflow/fcl";
 import * as t from "@onflow/types";
 import { signBet } from "@/lib/api";
@@ -43,6 +44,8 @@ interface UseBetManagerReturn {
     colStartTimeMs: number;
     colEndTimeMs: number;
   }) => void;
+  /** Queue an arbitrary async task onto the tx queue (serialized with bet txs). */
+  queueTx: (fn: () => Promise<void>) => Promise<void>;
 }
 
 export function useBetManager(
@@ -72,76 +75,93 @@ export function useBetManager(
 
   // ── Expiry Resolution + Cleanup ─────────────────────────────────────────
   // Check active bets every 200ms to see if they've expired.
-  // Uses functional state update to avoid race conditions with other setActiveBets calls.
-  // Also cleans up resolved bets that have scrolled off the grid (>60s after expiry).
+  // Side effects (addBalance, console.log) are collected during the pure state
+  // updater and applied afterwards to avoid double-firing in React StrictMode.
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now();
       const prices = priceHistoryRef.current;
 
-      setActiveBets((prev) => {
-        let changed = false;
-        const updated = prev
-          .filter((bet) => {
-            // Remove resolved bets that have scrolled well off-screen
-            if (bet.status !== "active" && now - (bet.startTimestamp + 5000) > 60000) {
-              changed = true;
-              return false;
-            }
-            return true;
-          })
-          .map((bet) => {
-            if (bet.status !== "active") return bet;
+      // Collect side effects outside the state updater
+      const pendingEffects: Array<() => void> = [];
 
-            // The price line tip is drawn at the center of the current-time column
-            // (PriceLine uses currentTimeCol + 0.5), so it visually enters the next
-            // cell 2500ms before the cell's grid-aligned startTimestamp.
-            // Shift the resolution window to match the visual.
-            const VISUAL_OFFSET_MS = 2500;
-            const visualStartMs = bet.startTimestamp - VISUAL_OFFSET_MS;
-            const visualEndMs = visualStartMs + 5000;
-
-            // Check all prices from visual start up to now (capped at visual end)
-            const relevantPrices = prices.filter(
-              (p) => p.timestamp >= visualStartMs && p.timestamp <= Math.min(now, visualEndMs)
-            );
-
-            let touched = false;
-            for (const p of relevantPrices) {
-              if (p.price >= bet.priceBottom && p.price <= bet.priceTop) {
-                touched = true;
-                break;
+      // flushSync forces the state updater to run synchronously so that
+      // pendingEffects is populated before we iterate it below.
+      // Without this, React 18 defers the updater and effects never fire.
+      flushSync(() => {
+        setActiveBets((prev) => {
+          // Clear effects from any previous StrictMode invocation of this updater
+          pendingEffects.length = 0;
+          let changed = false;
+          const updated = prev
+            .filter((bet) => {
+              // Remove resolved bets that have scrolled well off-screen
+              if (bet.status !== "active" && now - (bet.startTimestamp + 5000) > 60000) {
+                changed = true;
+                return false;
               }
-            }
+              return true;
+            })
+            .map((bet) => {
+              if (bet.status !== "active") return bet;
 
-            // WIN: resolve immediately when price touches the cell
-            if (touched) {
-              changed = true;
-              addBalanceRef.current(bet.payout);
-              console.log(
-                `[Bet] ✅ WON ${bet.id}: $${bet.betSize} → +$${bet.payout.toFixed(2)} | ` +
-                `BTC in $${bet.priceBottom.toFixed(2)}–$${bet.priceTop.toFixed(2)} (${bet.multiplier.toFixed(2)}x) | ` +
-                `${relevantPrices.length} prices checked`
+              // The price line tip is drawn at the center of the current-time column
+              // (PriceLine uses currentTimeCol + 0.5), so it visually enters the next
+              // cell 2500ms before the cell's grid-aligned startTimestamp.
+              // Shift the resolution window to match the visual.
+              const VISUAL_OFFSET_MS = 2500;
+              const visualStartMs = bet.startTimestamp - VISUAL_OFFSET_MS;
+              const visualEndMs = visualStartMs + 5000;
+
+              // Check all prices from visual start up to now (capped at visual end)
+              const relevantPrices = prices.filter(
+                (p) => p.timestamp >= visualStartMs && p.timestamp <= Math.min(now, visualEndMs)
               );
-              return { ...bet, status: "won" as BetStatus, resolvedAt: now };
-            }
 
-            // LOSE: wait until the visual window has fully passed
-            if (now < visualEndMs) return bet;
+              let touched = false;
+              for (const p of relevantPrices) {
+                if (p.price >= bet.priceBottom && p.price <= bet.priceTop) {
+                  touched = true;
+                  break;
+                }
+              }
 
-            changed = true;
-            console.log(
-              `[Bet] ❌ LOST ${bet.id}: -$${bet.betSize} | ` +
-              `BTC never in $${bet.priceBottom.toFixed(2)}–$${bet.priceTop.toFixed(2)} | ` +
-              `${relevantPrices.length} prices checked, ` +
-              `range: $${relevantPrices.length > 0 ? relevantPrices.reduce((min, p) => Math.min(min, p.price), Infinity).toFixed(2) : "?"} – ` +
-              `$${relevantPrices.length > 0 ? relevantPrices.reduce((max, p) => Math.max(max, p.price), 0).toFixed(2) : "?"}`
-            );
-            return { ...bet, status: "lost" as BetStatus, resolvedAt: now };
-          });
+              // WIN: resolve immediately when price touches the cell
+              if (touched) {
+                changed = true;
+                pendingEffects.push(() => {
+                  addBalanceRef.current(bet.payout);
+                  console.log(
+                    `[Bet] ✅ WON ${bet.id}: $${bet.betSize} → +$${bet.payout.toFixed(2)} | ` +
+                    `BTC in $${bet.priceBottom.toFixed(2)}–$${bet.priceTop.toFixed(2)} (${bet.multiplier.toFixed(2)}x) | ` +
+                    `${relevantPrices.length} prices checked`
+                  );
+                });
+                return { ...bet, status: "won" as BetStatus, resolvedAt: now };
+              }
 
-        return changed ? updated : prev;
+              // LOSE: wait until the visual window has fully passed
+              if (now < visualEndMs) return bet;
+
+              changed = true;
+              pendingEffects.push(() => {
+                console.log(
+                  `[Bet] ❌ LOST ${bet.id}: -$${bet.betSize} | ` +
+                  `BTC never in $${bet.priceBottom.toFixed(2)}–$${bet.priceTop.toFixed(2)} | ` +
+                  `${relevantPrices.length} prices checked, ` +
+                  `range: $${relevantPrices.length > 0 ? relevantPrices.reduce((min, p) => Math.min(min, p.price), Infinity).toFixed(2) : "?"} – ` +
+                  `$${relevantPrices.length > 0 ? relevantPrices.reduce((max, p) => Math.max(max, p.price), 0).toFixed(2) : "?"}`
+                );
+              });
+              return { ...bet, status: "lost" as BetStatus, resolvedAt: now };
+            });
+
+          return changed ? updated : prev;
+        });
       });
+
+      // Apply side effects once, outside the state updater
+      for (const effect of pendingEffects) effect();
     }, 200);
 
     return () => clearInterval(interval);
@@ -280,5 +300,13 @@ export function useBetManager(
     [userAddress, magicLinkAuthz, deductBalance, addBalance]
   );
 
-  return { activeBets, placeBet };
+  // Queue an arbitrary async task (e.g. mint) onto the same tx queue
+  // so it serializes with bet transactions and avoids sequence number conflicts.
+  const queueTx = useCallback((fn: () => Promise<void>): Promise<void> => {
+    const p = txQueueRef.current.then(fn, fn);
+    txQueueRef.current = p;
+    return p;
+  }, []);
+
+  return { activeBets, placeBet, queueTx };
 }

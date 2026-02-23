@@ -28,23 +28,31 @@ export default function TradePage() {
   // Magic.link authorization function for FCL
   const magicLinkAuthz = magic?.flow?.authorization;
 
-  // PYUSD balance management (needs authz for minting)
+  // Bet manager (initialized first so queueTx is available for useBalance)
+  // Uses refs internally for balance callbacks, so order doesn't cause stale closures.
+  const balanceCallbacksRef = useRef({ deduct: (_n: number) => {}, add: (_n: number) => {} });
+  const deductOptimisticStable = useCallback((n: number) => balanceCallbacksRef.current.deduct(n), []);
+  const addOptimisticStable = useCallback((n: number) => balanceCallbacksRef.current.add(n), []);
+
+  const { activeBets, placeBet, queueTx } = useBetManager(
+    address,
+    magicLinkAuthz,
+    priceHistory,
+    deductOptimisticStable,
+    addOptimisticStable
+  );
+
+  // PYUSD balance management — uses queueTx to serialize mint with bet txs
   const {
     optimisticBalance,
     loading: balanceLoading,
     deductOptimistic,
     addOptimistic,
     mintPYUSD,
-  } = useBalance(address, magicLinkAuthz);
+  } = useBalance(address, magicLinkAuthz, queueTx);
 
-  // Bet manager
-  const { activeBets, placeBet } = useBetManager(
-    address,
-    magicLinkAuthz,
-    priceHistory,
-    deductOptimistic,
-    addOptimistic
-  );
+  // Keep balance callbacks in sync
+  balanceCallbacksRef.current = { deduct: deductOptimistic, add: addOptimistic };
 
   const gridAreaRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });

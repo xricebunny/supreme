@@ -16,7 +16,11 @@ interface UseBalanceReturn {
   mintPYUSD: (amount: number) => Promise<void>;
 }
 
-export function useBalance(address: string | null, authz?: any): UseBalanceReturn {
+export function useBalance(
+  address: string | null,
+  authz?: any,
+  queueTx?: (fn: () => Promise<void>) => Promise<void>
+): UseBalanceReturn {
   const [balance, setBalance] = useState(0);
   const [optimisticDelta, setOptimisticDelta] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -63,20 +67,29 @@ export function useBalance(address: string | null, authz?: any): UseBalanceRetur
       // Ensure user has FLOW for storage before minting
       await fundAccount(address);
 
-      const txId = await fcl.mutate({
-        cadence: MINT_PYUSD,
-        args: (arg: typeof fcl.arg) => [arg(amount.toFixed(8), t.UFix64)],
-        limit: 9999,
-        authorizations: [authz],
-        payer: authz,
-        proposer: authz,
-      } as any);
-      await fcl.tx(txId).onceSealed();
+      const doMint = async () => {
+        const txId = await fcl.mutate({
+          cadence: MINT_PYUSD,
+          args: (arg: typeof fcl.arg) => [arg(amount.toFixed(8), t.UFix64)],
+          limit: 9999,
+          authorizations: [authz],
+          payer: authz,
+          proposer: authz,
+        } as any);
+        await fcl.tx(txId).onceSealed();
+      };
+
+      // Serialize with bet transactions to avoid sequence number conflicts
+      if (queueTx) {
+        await queueTx(doMint);
+      } else {
+        await doMint();
+      }
       await refreshBalance();
     } finally {
       setLoading(false);
     }
-  }, [address, authz, refreshBalance]);
+  }, [address, authz, refreshBalance, queueTx]);
 
   return {
     balance,

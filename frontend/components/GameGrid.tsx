@@ -280,8 +280,12 @@ export default function GameGrid({
                             // Cell row spans price band: top border → bottom border
                             const priceTop = priceMax - cell.row * priceStep;
                             const priceBottom = priceMax - (cell.row + 1) * priceStep;
-                            const targetPrice = (priceTop + priceBottom) / 2; // midpoint for backend
                             const aboveTarget = cell.row < currentPriceRow;
+                            // targetPrice = threshold the oracle price must cross to "touch" the cell.
+                            // aboveTarget=true (cell above current price): price must rise to priceBottom (lower edge)
+                            // aboveTarget=false (cell below current price): price must fall to priceTop (upper edge)
+                            // This aligns with the chain's directional check: price >= target (above) or price <= target (below)
+                            const targetPrice = aboveTarget ? priceBottom : priceTop;
                             // Compute exact wall-clock timestamps for this column
                             // to avoid rounding errors when mapping bet back to cell
                             const slotBase = baseTimeMs + timeSlot * 5000;
