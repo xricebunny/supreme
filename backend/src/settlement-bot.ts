@@ -1,8 +1,9 @@
-import { sendTransaction, executeScript, fcl } from "./flow-client.js";
+import { sendTransaction, executeScript, getTotalKeys, fcl } from "./flow-client.js";
 import * as t from "@onflow/types";
 
-const POLL_INTERVAL_MS = 5000; // Check every 5 seconds
+const POLL_INTERVAL_MS = 10000; // Check every 10 seconds
 let interval: ReturnType<typeof setInterval> | null = null;
+let isSettling = false; // Prevent overlapping cycles
 
 // ── Cadence Templates ───────────────────────────────────────────────────────
 
@@ -49,20 +50,28 @@ transaction(positionId: UInt64) {
 // ── Settlement Logic ────────────────────────────────────────────────────────
 
 async function settleExpiredPositions() {
+  if (isSettling) return; // Previous cycle still running
+  isSettling = true;
+
   try {
     const positions = await executeScript(LIST_UNSETTLED_CDC);
 
     if (!positions || positions.length === 0) return;
 
-    console.log(`[Settlement] Found ${positions.length} expired position(s) to settle`);
+    // Reserve half the keys for settlement, leave the rest for oracle + bet signing
+    const maxParallel = Math.max(1, Math.floor(getTotalKeys() / 2));
+    const batch = positions.slice(0, maxParallel);
 
-    // Settle in parallel (key rotation enables concurrent txs)
-    const settlements = positions.map(async (pos: any) => {
+    console.log(`[Settlement] Found ${positions.length} expired, settling ${batch.length} in parallel (${maxParallel} slots)`);
+
+    // Settle in parallel — key rotation pool handles assignment
+    const settlements = batch.map(async (pos: any) => {
       try {
         const posId = pos.id;
         const result = await sendTransaction(
           SETTLE_POSITION_CDC,
-          (arg: typeof fcl.arg) => [arg(posId.toString(), t.UInt64)]
+          (arg: typeof fcl.arg) => [arg(posId.toString(), t.UInt64)],
+          { waitForKey: true }
         );
 
         const settledEvent = result.events.find(
@@ -72,20 +81,22 @@ async function settleExpiredPositions() {
         const payout = settledEvent?.data?.payout ?? "0";
         console.log(`[Settlement] Position ${posId}: won=${won}, payout=${payout}`);
       } catch (err: any) {
-        console.error(`[Settlement] Failed to settle position ${pos.id}: ${err.message}`);
+        console.error(`[Settlement] Failed position ${pos.id}: ${err.message.slice(0, 150)}`);
       }
     });
 
     await Promise.all(settlements);
   } catch (err: any) {
-    console.error(`[Settlement] Poll error: ${err.message}`);
+    console.error(`[Settlement] Poll error: ${err.message.slice(0, 150)}`);
+  } finally {
+    isSettling = false;
   }
 }
 
 // ── Public API ──────────────────────────────────────────────────────────────
 
 export function startSettlementBot() {
-  console.log("[Settlement] Bot started, polling every 5s");
+  console.log("[Settlement] Bot started, polling every 10s");
   // Run immediately once
   settleExpiredPositions();
   interval = setInterval(settleExpiredPositions, POLL_INTERVAL_MS);

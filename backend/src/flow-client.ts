@@ -29,10 +29,28 @@ export function configureFCL() {
 
 /** Track which key indices are currently in-flight. */
 const busyKeys = new Set<number>();
-let totalKeys = 1; // Start with 1 key, updated after addKeys tx
+let totalKeys = 1; // Updated on startup by detectKeyCount()
 
 export function setTotalKeys(count: number) {
   totalKeys = count;
+}
+
+export function getTotalKeys(): number {
+  return totalKeys;
+}
+
+/** Query the admin account and count active (non-revoked) keys. */
+export async function detectKeyCount(): Promise<number> {
+  try {
+    const account = await fcl.account(ADMIN_ADDRESS);
+    const activeKeys = account.keys.filter((k: any) => !k.revoked);
+    totalKeys = activeKeys.length;
+    console.log(`[Keys] Detected ${totalKeys} active keys on admin account`);
+    return totalKeys;
+  } catch (err: any) {
+    console.error(`[Keys] Failed to detect key count: ${err.message}`);
+    return totalKeys;
+  }
 }
 
 /** Acquire an available key index. Returns null if all keys are busy. */

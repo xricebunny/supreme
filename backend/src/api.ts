@@ -6,7 +6,7 @@ import { SHA3 } from "sha3";
 import * as t from "@onflow/types";
 import { getMultiplier } from "./multiplier.js";
 import { getLatestBinancePrice, getOracleHealth } from "./oracle-updater.js";
-import { executeScript, sendTransaction, ADMIN_ADDRESS, fcl } from "./flow-client.js";
+import { executeScript, sendTransaction, ADMIN_ADDRESS, getTotalKeys, fcl } from "./flow-client.js";
 
 const ec = new EC("p256");
 const ADMIN_PRIVATE_KEY = process.env.FLOW_ADMIN_PRIVATE_KEY!;
@@ -243,6 +243,7 @@ transaction(recipient: Address, amount: UFix64) {
       status: oracle.stale ? "degraded" : "healthy",
       oracle,
       adminAddress: ADMIN_ADDRESS,
+      keys: getTotalKeys(),
     });
   });
 

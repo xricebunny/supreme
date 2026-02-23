@@ -7,6 +7,7 @@ import { useGameState } from "@/hooks/useGameState";
 import { useAnimationTime } from "@/hooks/useAnimationTime";
 import { useBalance } from "@/hooks/useBalance";
 import { useBetManager } from "@/hooks/useBetManager";
+import { useBackendHealth } from "@/hooks/useBackendHealth";
 import Sidebar from "@/components/Sidebar";
 import PriceDisplay from "@/components/PriceDisplay";
 import GameGrid from "@/components/GameGrid";
@@ -24,6 +25,7 @@ export default function TradePage() {
   const { magic } = useMagic();
   const { currentPrice, priceHistory, connected, timedOut } = useBinancePrice();
   const { betSize, setBetSize } = useGameState(currentPrice);
+  const backendHealth = useBackendHealth();
 
   // Magic.link authorization function for FCL
   const magicLinkAuthz = magic?.flow?.authorization;
@@ -128,7 +130,64 @@ export default function TradePage() {
             borderBottom: "1px solid #1e3329",
           }}
         >
-          <PriceDisplay price={currentPrice} />
+          <div className="flex items-center gap-3">
+            <PriceDisplay price={currentPrice} />
+            <div
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full"
+              style={{
+                background: "#111a16",
+                border: `1px solid ${
+                  !backendHealth.connected
+                    ? "#5c2020"
+                    : backendHealth.oracleStale
+                      ? "#5c4a20"
+                      : "#1e3329"
+                }`,
+              }}
+              title={
+                !backendHealth.connected
+                  ? "Backend offline"
+                  : backendHealth.oracleStale
+                    ? `Oracle stale (last push ${Math.round(backendHealth.lastPushMs / 1000)}s ago)`
+                    : `Oracle live — $${backendHealth.oraclePrice.toFixed(0)}`
+              }
+            >
+              <div
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: "50%",
+                  background: !backendHealth.connected
+                    ? "#ef4444"
+                    : backendHealth.oracleStale
+                      ? "#f59e0b"
+                      : "#00ff88",
+                  boxShadow: !backendHealth.connected
+                    ? "0 0 4px #ef4444"
+                    : backendHealth.oracleStale
+                      ? "0 0 4px #f59e0b"
+                      : "0 0 4px #00ff88",
+                  flexShrink: 0,
+                }}
+              />
+              <span
+                className="text-[10px]"
+                style={{
+                  color: !backendHealth.connected
+                    ? "#ef4444"
+                    : backendHealth.oracleStale
+                      ? "#f59e0b"
+                      : "#4a7a66",
+                }}
+              >
+                {!backendHealth.connected
+                  ? "Offline"
+                  : backendHealth.oracleStale
+                    ? "Oracle Stale"
+                    : "Live"}
+              </span>
+            </div>
+          </div>
           <div className="flex items-center gap-3">
             {address && (
               <div

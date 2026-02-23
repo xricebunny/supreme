@@ -4,10 +4,15 @@ import * as t from "@onflow/types";
 
 let latestPrice = 0;
 let lastPushTime = 0;
-let isPushing = false; // Guard against concurrent pushes
+let lastPriceUpdateTime = 0; // Last time we received ANY price from Binance
+let isPushing = false;
+let pushStartTime = 0; // Track when push started (for timeout detection)
 const PUSH_INTERVAL_MS = 4000; // Push every ~4 seconds
+const PUSH_TIMEOUT_MS = 30000; // Force-reset isPushing after 30s
+const STALE_WS_MS = 15000; // Reconnect if no WS message for 15s
 let ws: WebSocket | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let watchdogTimer: ReturnType<typeof setInterval> | null = null;
 
 // ── Cadence Templates ───────────────────────────────────────────────────────
 
@@ -39,8 +44,17 @@ function toUFix64(value: number): string {
 // ── Push Price to Oracle ────────────────────────────────────────────────────
 
 async function pushPrice(price: number, timestamp: number): Promise<void> {
-  if (isPushing) return; // Skip if already pushing
+  if (isPushing) {
+    // Check for stuck push — if it's been running longer than PUSH_TIMEOUT_MS, force-reset
+    if (Date.now() - pushStartTime > PUSH_TIMEOUT_MS) {
+      console.warn(`[Oracle] Push stuck for ${((Date.now() - pushStartTime) / 1000).toFixed(0)}s, force-resetting`);
+      isPushing = false;
+    } else {
+      return;
+    }
+  }
   isPushing = true;
+  pushStartTime = Date.now();
 
   try {
     const result = await sendTransaction(
@@ -67,6 +81,7 @@ async function pushPrice(price: number, timestamp: number): Promise<void> {
 function connectBinance() {
   if (ws) {
     try { ws.close(); } catch {}
+    ws = null;
   }
 
   console.log("[Oracle] Connecting to Binance WS...");
@@ -74,12 +89,14 @@ function connectBinance() {
 
   ws.on("open", () => {
     console.log("[Oracle] Binance WS connected");
+    lastPriceUpdateTime = Date.now();
   });
 
   ws.on("message", (data: WebSocket.Data) => {
     try {
       const trade = JSON.parse(data.toString());
       latestPrice = parseFloat(trade.p);
+      lastPriceUpdateTime = Date.now();
 
       // Push at interval, only if not already pushing
       const now = Date.now();
@@ -92,11 +109,14 @@ function connectBinance() {
 
   ws.on("close", () => {
     console.log("[Oracle] Binance WS disconnected, reconnecting in 3s...");
+    ws = null;
     scheduleReconnect();
   });
 
   ws.on("error", (err: Error) => {
     console.error(`[Oracle] WS error: ${err.message}`);
+    try { ws?.close(); } catch {}
+    ws = null;
     scheduleReconnect();
   });
 }
@@ -109,10 +129,36 @@ function scheduleReconnect() {
   }, 3000);
 }
 
+// ── Watchdog ────────────────────────────────────────────────────────────────
+// Periodically checks for stale state and auto-recovers.
+
+function startWatchdog() {
+  if (watchdogTimer) return;
+  watchdogTimer = setInterval(() => {
+    const now = Date.now();
+
+    // Check if WebSocket has gone silent (connected but no messages)
+    if (lastPriceUpdateTime > 0 && now - lastPriceUpdateTime > STALE_WS_MS) {
+      console.warn(`[Oracle] No WS message for ${((now - lastPriceUpdateTime) / 1000).toFixed(0)}s, forcing reconnect`);
+      lastPriceUpdateTime = now; // Prevent spam
+      try { ws?.close(); } catch {}
+      ws = null;
+      scheduleReconnect();
+    }
+
+    // Check if isPushing is stuck
+    if (isPushing && now - pushStartTime > PUSH_TIMEOUT_MS) {
+      console.warn(`[Oracle] Watchdog: push stuck for ${((now - pushStartTime) / 1000).toFixed(0)}s, force-resetting`);
+      isPushing = false;
+    }
+  }, 5000);
+}
+
 // ── Public API ──────────────────────────────────────────────────────────────
 
 export function startOracleUpdater() {
   connectBinance();
+  startWatchdog();
 }
 
 export function stopOracleUpdater() {
@@ -123,6 +169,10 @@ export function stopOracleUpdater() {
   if (reconnectTimer) {
     clearTimeout(reconnectTimer);
     reconnectTimer = null;
+  }
+  if (watchdogTimer) {
+    clearInterval(watchdogTimer);
+    watchdogTimer = null;
   }
 }
 
