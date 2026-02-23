@@ -243,7 +243,8 @@ export default function GameGrid({
             <div className="absolute inset-0">
               {cells.map((cell) => {
                 const isFuture = cell.colDist > 0;
-                const isClickable = isFuture && cell.effectiveColDist > 0 && !!onCellClick;
+                const isBuffer = cell.colDist === 1; // 5-second buffer after current time
+                const isClickable = isFuture && !isBuffer && cell.effectiveColDist > 0 && !!onCellClick;
 
                 // Check if this cell has an active bet (using precomputed positions)
                 const cellBet = betPositions.get(`${cell.row}-${cell.col}`);
@@ -268,7 +269,7 @@ export default function GameGrid({
                       top: cell.row * cellHeight,
                       width: cellWidth,
                       height: cellHeight,
-                      opacity: cellBet ? 1 : cell.isPast ? 0.3 : cell.isCurrentTime ? 0.5 : 1,
+                      opacity: cellBet ? 1 : cell.isPast ? 0.3 : (cell.isCurrentTime || isBuffer) ? 0.5 : 1,
                       background: cellBet && cellBet.status === "active"
                         ? "rgba(0, 200, 255, 0.15)"
                         : undefined,
@@ -321,7 +322,7 @@ export default function GameGrid({
                         <span className="text-sm font-bold text-red-400">-${cellBet.betSize}</span>
                       </span>
                     )}
-                    {!cellBet && isFuture && cell.effectiveColDist > 0 && (
+                    {!cellBet && isFuture && !isBuffer && cell.effectiveColDist > 0 && (
                       <span className="cell-payout">
                         {formatPayout(cell.payout)}
                       </span>
