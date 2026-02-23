@@ -92,11 +92,17 @@ export function useBetManager(
           .map((bet) => {
             if (bet.status !== "active") return bet;
 
-            const colEndMs = bet.startTimestamp + 5000;
+            // The price line tip is drawn at the center of the current-time column
+            // (PriceLine uses currentTimeCol + 0.5), so it visually enters the next
+            // cell 2500ms before the cell's grid-aligned startTimestamp.
+            // Shift the resolution window to match the visual.
+            const VISUAL_OFFSET_MS = 2500;
+            const visualStartMs = bet.startTimestamp - VISUAL_OFFSET_MS;
+            const visualEndMs = visualStartMs + 5000;
 
-            // Check all prices from bet start up to now (capped at column end)
+            // Check all prices from visual start up to now (capped at visual end)
             const relevantPrices = prices.filter(
-              (p) => p.timestamp >= bet.startTimestamp && p.timestamp <= Math.min(now, colEndMs)
+              (p) => p.timestamp >= visualStartMs && p.timestamp <= Math.min(now, visualEndMs)
             );
 
             let touched = false;
@@ -107,7 +113,7 @@ export function useBetManager(
               }
             }
 
-            // WIN: resolve immediately when price touches the cell (don't wait for column end)
+            // WIN: resolve immediately when price touches the cell
             if (touched) {
               changed = true;
               addBalanceRef.current(bet.payout);
@@ -119,8 +125,8 @@ export function useBetManager(
               return { ...bet, status: "won" as BetStatus };
             }
 
-            // LOSE: wait until column's right edge has fully passed
-            if (now < colEndMs) return bet;
+            // LOSE: wait until the visual window has fully passed
+            if (now < visualEndMs) return bet;
 
             changed = true;
             console.log(
