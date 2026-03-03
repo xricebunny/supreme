@@ -22,6 +22,7 @@ export async function signBet(params: {
   betSize: number;
   rowDist: number;
   colDist: number;
+  symbol?: string;
 }): Promise<SignBetResponse> {
   const res = await fetch(`${API_BASE}/api/sign-bet`, {
     method: "POST",
@@ -52,13 +53,13 @@ export async function fundAccount(address: string): Promise<{ status: string }> 
   return res.json();
 }
 
-export async function getPrice(): Promise<{ price: number; stale: boolean }> {
-  const res = await fetch(`${API_BASE}/api/price`);
+export async function getPrice(symbol: string = "btc"): Promise<{ price: number; stale: boolean }> {
+  const res = await fetch(`${API_BASE}/api/price?symbol=${symbol}`);
   return res.json();
 }
 
-export async function getPositions(address: string): Promise<any[]> {
-  const res = await fetch(`${API_BASE}/api/positions/${address}`);
+export async function getPositions(address: string, symbol: string = "btc"): Promise<any[]> {
+  const res = await fetch(`${API_BASE}/api/positions/${address}?symbol=${symbol}`);
   const data = await res.json();
   return data.positions || [];
 }

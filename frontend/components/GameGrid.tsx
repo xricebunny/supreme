@@ -69,10 +69,13 @@ export default function GameGrid({
   const priceStep = niceMultiplier * Math.pow(10, stepExp);
 
   // Stable grid anchor — set once on first price, then only re-anchor when price
-  // drifts more than 10 rows away (to prevent the grid origin from shifting every frame,
-  // which would pin the price line to a border instead of floating between rows).
+  // drifts far enough that it would leave the visible area. The grid has TOTAL_ROWS/2
+  // rows of headroom above and below center, and we show VISIBLE_ROWS. Re-anchor
+  // when the price has drifted beyond 15 rows to keep it well within the grid while
+  // avoiding frequent resets that cause the price line to jump.
   const anchorRef = useRef(0);
-  if (anchorRef.current === 0 || Math.abs(currentPrice - anchorRef.current) > priceStep * 10) {
+  const REANCHOR_ROWS = Math.floor((TOTAL_ROWS - VISIBLE_ROWS) / 2) - 1; // 14 rows
+  if (anchorRef.current === 0 || Math.abs(currentPrice - anchorRef.current) > priceStep * REANCHOR_ROWS) {
     anchorRef.current = Math.round(currentPrice / priceStep) * priceStep;
   }
   const priceMax = anchorRef.current + (TOTAL_ROWS / 2) * priceStep;
@@ -339,13 +342,13 @@ export default function GameGrid({
             {/* Price line — inside panning layers so it scrolls at 60fps */}
             <PriceLine
               priceHistory={priceHistory}
-              centerPrice={currentPrice}
               cellHeight={cellHeight}
               cellWidth={cellWidth}
               currentTimeCol={CURRENT_TIME_COL}
               priceStep={priceStep}
-              centerPriceY={(currentPriceRow + fractionInRow) * cellHeight}
-              slotProgress={slotProgress}
+              priceMax={priceMax}
+              baseTimeMs={baseTimeMs}
+              timeSlot={timeSlot}
             />
           </div>
         </div>

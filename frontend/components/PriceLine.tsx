@@ -2,20 +2,19 @@
 
 import { useMemo } from "react";
 import { PricePoint } from "@/types";
-import { SAMPLE_INTERVAL_MS } from "@/hooks/useBinancePrice";
 
 interface PriceLineProps {
   priceHistory: PricePoint[];
-  centerPrice: number;
   cellHeight: number;
   cellWidth: number;
   currentTimeCol: number;
   priceStep: number;
-  /** The Y pixel position of the current price in the full grid coordinate system */
-  centerPriceY: number;
-  /** Progress within the current 5-second slot (0–1), used to offset X so the
-   *  line doesn't jump when the slot boundary resets translateX */
-  slotProgress: number;
+  /** The highest price in the full grid coordinate system (row 0 top border) */
+  priceMax: number;
+  /** Wall-clock time (ms) of slot 0, column 0 left edge */
+  baseTimeMs: number;
+  /** Current discrete time slot index */
+  timeSlot: number;
 }
 
 /**
@@ -55,31 +54,37 @@ function catmullRomPath(points: { x: number; y: number }[], alpha = 0.5): string
 
 export default function PriceLine({
   priceHistory,
-  centerPrice,
   cellHeight,
   cellWidth,
   currentTimeCol,
   priceStep,
-  centerPriceY,
-  slotProgress,
+  priceMax,
+  baseTimeMs,
+  timeSlot,
 }: PriceLineProps) {
   const { pathData, lastPoint, firstX, lastX } = useMemo(() => {
     if (priceHistory.length < 2)
       return { pathData: "", lastPoint: null, firstX: 0, lastX: 0 };
 
-    const pixelsPerSecond = cellWidth / 5;
-    const secondsPerTick = SAMPLE_INTERVAL_MS / 1000;
-    const centerY = centerPriceY;
-    const slotOffsetX = slotProgress * cellWidth;
+    // Convert each price point's timestamp to an absolute X position in
+    // grid-local coordinates (i.e. before the parent's CSS translateX).
+    // The parent container pans at 60fps — we must NOT add slotProgress
+    // here, otherwise the line jitters because slotProgress only updates
+    // every 200ms while the CSS transform updates every frame.
 
-    const points = priceHistory.map((point, i) => {
-      const ticksFromEnd = priceHistory.length - 1 - i;
-      const secondsFromEnd = ticksFromEnd * secondsPerTick;
-      const x =
-        (currentTimeCol + 0.5) * cellWidth + slotOffsetX - secondsFromEnd * pixelsPerSecond;
-      const priceDiff = point.price - centerPrice;
-      const rowOffset = priceDiff / priceStep;
-      const y = centerY - rowOffset * cellHeight;
+    // Wall-clock time at the left edge of column 0:
+    // Column c represents time: slotBaseMs + (c - CURRENT_TIME_COL) * 5000
+    // So column 0 = slotBaseMs - CURRENT_TIME_COL * 5000
+    const slotBaseMs = baseTimeMs + timeSlot * 5000;
+    const col0TimeMs = slotBaseMs - currentTimeCol * 5000;
+
+    const points = priceHistory.map((point) => {
+      // How many ms after column 0's left edge did this sample occur?
+      const msFromCol0 = point.timestamp - col0TimeMs;
+      // Map to pixel X: each 5000ms = 1 cellWidth
+      const x = (msFromCol0 / 5000) * cellWidth;
+      // Y in absolute grid coordinates: priceMax is row 0 top border
+      const y = ((priceMax - point.price) / priceStep) * cellHeight;
       return { x, y };
     });
 
@@ -90,13 +95,12 @@ export default function PriceLine({
     return { pathData: d, lastPoint: last, firstX: first.x, lastX: last.x };
   }, [
     priceHistory,
-    centerPrice,
     cellHeight,
     cellWidth,
-    centerPriceY,
-    currentTimeCol,
     priceStep,
-    slotProgress,
+    priceMax,
+    baseTimeMs,
+    timeSlot,
   ]);
 
   if (!pathData || !lastPoint) return null;

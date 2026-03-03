@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import type { TokenSymbol } from "./useBinancePrice";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 const POLL_INTERVAL_MS = 5000;
@@ -12,7 +13,7 @@ export interface BackendHealth {
   lastPushMs: number;
 }
 
-export function useBackendHealth(): BackendHealth {
+export function useBackendHealth(symbol: TokenSymbol = "btc"): BackendHealth {
   const [health, setHealth] = useState<BackendHealth>({
     connected: false,
     oraclePrice: 0,
@@ -28,7 +29,7 @@ export function useBackendHealth(): BackendHealth {
       try {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 3000);
-        const res = await fetch(`${API_BASE}/api/health`, { signal: controller.signal });
+        const res = await fetch(`${API_BASE}/api/health?symbol=${symbol}`, { signal: controller.signal });
         clearTimeout(timeout);
         if (cancelled) return;
         const data = await res.json();
@@ -51,7 +52,7 @@ export function useBackendHealth(): BackendHealth {
       cancelled = true;
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, []);
+  }, [symbol]);
 
   return health;
 }

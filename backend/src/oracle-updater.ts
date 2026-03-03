@@ -2,36 +2,43 @@ import WebSocket from "ws";
 import { sendTransaction, fcl } from "./flow-client.js";
 import * as t from "@onflow/types";
 
-let latestPrice = 0;
-let lastPushTime = 0;
-let lastPriceUpdateTime = 0; // Last time we received ANY price from Binance
-let isPushing = false;
-let pushStartTime = 0; // Track when push started (for timeout detection)
-const PUSH_INTERVAL_MS = 4000; // Push every ~4 seconds
-const PUSH_TIMEOUT_MS = 30000; // Force-reset isPushing after 30s
-const STALE_WS_MS = 15000; // Reconnect if no WS message for 15s
-let ws: WebSocket | null = null;
-let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-let watchdogTimer: ReturnType<typeof setInterval> | null = null;
+// ── Types ──────────────────────────────────────────────────────────────────
 
-// ── Interval High/Low Tracking ──────────────────────────────────────────────
+export type AssetSymbol = "btc" | "flow";
 
-let intervalHigh = 0;
-let intervalLow = Infinity;
-
-function resetInterval() {
-  intervalHigh = latestPrice;
-  intervalLow = latestPrice;
+interface OracleUpdaterState {
+  latestPrice: number;
+  lastPushTime: number;
+  lastPriceUpdateTime: number;
+  isPushing: boolean;
+  pushStartTime: number;
+  intervalHigh: number;
+  intervalLow: number;
+  ws: WebSocket | null;
+  reconnectTimer: ReturnType<typeof setTimeout> | null;
+  watchdogTimer: ReturnType<typeof setInterval> | null;
 }
 
-function trackPrice(price: number) {
-  if (price > intervalHigh) intervalHigh = price;
-  if (price < intervalLow) intervalLow = price;
+interface OracleConfig {
+  symbol: AssetSymbol;
+  wsUrl: string;
+  pushCadence: string;
+  label: string;
+  staleWsMs: number; // per-asset watchdog timeout
 }
 
-// ── Cadence Templates ───────────────────────────────────────────────────────
+// ── Constants ──────────────────────────────────────────────────────────────
 
-const PUSH_PRICE_RANGE_CDC = `
+const PUSH_INTERVAL_MS = 4000;
+const PUSH_TIMEOUT_MS = 30000;
+
+// ── Per-asset state ────────────────────────────────────────────────────────
+
+const updaters: Map<AssetSymbol, OracleUpdaterState> = new Map();
+
+// ── Cadence Templates ──────────────────────────────────────────────────────
+
+const PUSH_PRICE_RANGE_BTC = `
 import PriceOracle from 0xPriceOracle
 import PriceRangeOracle from 0xPriceRangeOracle
 
@@ -56,31 +63,103 @@ transaction(high: UFix64, low: UFix64, close: UFix64, timestamp: UFix64) {
 }
 `;
 
-// ── Price Formatting ────────────────────────────────────────────────────────
+const PUSH_PRICE_RANGE_FLOW = `
+import FlowPriceOracle from 0xFlowPriceOracle
+import FlowPriceRangeOracle from 0xFlowPriceRangeOracle
 
-/** Format a number as a Cadence UFix64 string (8 decimal places). */
+transaction(high: UFix64, low: UFix64, close: UFix64, timestamp: UFix64) {
+    let oracleAdmin: &FlowPriceOracle.Admin
+    let rangeAdmin: &FlowPriceRangeOracle.Admin
+
+    prepare(signer: auth(BorrowValue) &Account) {
+        self.oracleAdmin = signer.storage.borrow<&FlowPriceOracle.Admin>(
+            from: FlowPriceOracle.AdminStoragePath
+        ) ?? panic("Could not borrow FlowPriceOracle Admin")
+
+        self.rangeAdmin = signer.storage.borrow<&FlowPriceRangeOracle.Admin>(
+            from: FlowPriceRangeOracle.AdminStoragePath
+        ) ?? panic("Could not borrow FlowPriceRangeOracle Admin")
+    }
+
+    execute {
+        self.oracleAdmin.pushPrice(price: close, timestamp: timestamp)
+        self.rangeAdmin.pushRange(high: high, low: low)
+    }
+}
+`;
+
+const ASSET_CONFIGS: Record<AssetSymbol, OracleConfig> = {
+  btc: {
+    symbol: "btc",
+    wsUrl: "wss://stream.binance.com:9443/ws/btcusdt@aggTrade",
+    pushCadence: PUSH_PRICE_RANGE_BTC,
+    label: "BTC",
+    staleWsMs: 15000, // BTC trades every ~50ms, 15s means something is wrong
+  },
+  flow: {
+    symbol: "flow",
+    wsUrl: "wss://stream.binance.com:9443/ws/flowusdt@aggTrade",
+    pushCadence: PUSH_PRICE_RANGE_FLOW,
+    label: "FLOW",
+    staleWsMs: 120000, // FLOW/USDT is low volume, trades can be minutes apart
+  },
+};
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+
 function toUFix64(value: number): string {
   return value.toFixed(8);
 }
 
+function createState(): OracleUpdaterState {
+  return {
+    latestPrice: 0,
+    lastPushTime: 0,
+    lastPriceUpdateTime: 0,
+    isPushing: false,
+    pushStartTime: 0,
+    intervalHigh: 0,
+    intervalLow: Infinity,
+    ws: null,
+    reconnectTimer: null,
+    watchdogTimer: null,
+  };
+}
+
+function resetInterval(state: OracleUpdaterState) {
+  state.intervalHigh = state.latestPrice;
+  state.intervalLow = state.latestPrice;
+}
+
+function trackPrice(state: OracleUpdaterState, price: number) {
+  if (price > state.intervalHigh) state.intervalHigh = price;
+  if (price < state.intervalLow) state.intervalLow = price;
+}
+
 // ── Push Price Range to Oracle ──────────────────────────────────────────────
 
-async function pushPriceRange(high: number, low: number, close: number, timestamp: number): Promise<void> {
-  if (isPushing) {
-    // Check for stuck push — if it's been running longer than PUSH_TIMEOUT_MS, force-reset
-    if (Date.now() - pushStartTime > PUSH_TIMEOUT_MS) {
-      console.warn(`[Oracle] Push stuck for ${((Date.now() - pushStartTime) / 1000).toFixed(0)}s, force-resetting`);
-      isPushing = false;
+async function pushPriceRange(
+  config: OracleConfig,
+  state: OracleUpdaterState,
+  high: number,
+  low: number,
+  close: number,
+  timestamp: number
+): Promise<void> {
+  if (state.isPushing) {
+    if (Date.now() - state.pushStartTime > PUSH_TIMEOUT_MS) {
+      console.warn(`[Oracle:${config.label}] Push stuck for ${((Date.now() - state.pushStartTime) / 1000).toFixed(0)}s, force-resetting`);
+      state.isPushing = false;
     } else {
       return;
     }
   }
-  isPushing = true;
-  pushStartTime = Date.now();
+  state.isPushing = true;
+  state.pushStartTime = Date.now();
 
   try {
     const result = await sendTransaction(
-      PUSH_PRICE_RANGE_CDC,
+      config.pushCadence,
       (arg: typeof fcl.arg) => [
         arg(toUFix64(high), t.UFix64),
         arg(toUFix64(low), t.UFix64),
@@ -88,141 +167,155 @@ async function pushPriceRange(high: number, low: number, close: number, timestam
         arg(toUFix64(timestamp), t.UFix64),
       ]
     );
-    console.log(`[Oracle] Pushed H=$${high.toFixed(2)} L=$${low.toFixed(2)} C=$${close.toFixed(2)} (tx: ${result.txId.slice(0, 8)}...)`);
-    lastPushTime = Date.now();
+    console.log(`[Oracle:${config.label}] Pushed H=$${high.toFixed(2)} L=$${low.toFixed(2)} C=$${close.toFixed(2)} (tx: ${result.txId.slice(0, 8)}...)`);
+    state.lastPushTime = Date.now();
   } catch (err: any) {
-    // Only log meaningful errors, not "keys busy"
     if (!err.message.includes("keys are busy")) {
-      console.error(`[Oracle] Push failed: ${err.message.slice(0, 200)}`);
+      console.error(`[Oracle:${config.label}] Push failed: ${err.message.slice(0, 200)}`);
     }
   } finally {
-    isPushing = false;
+    state.isPushing = false;
   }
 }
 
 // ── Binance WebSocket ───────────────────────────────────────────────────────
 
-function connectBinance() {
-  if (ws) {
-    try { ws.close(); } catch {}
-    ws = null;
+function connectBinance(config: OracleConfig, state: OracleUpdaterState) {
+  if (state.ws) {
+    try { state.ws.close(); } catch {}
+    state.ws = null;
   }
 
-  console.log("[Oracle] Connecting to Binance WS...");
-  ws = new WebSocket("wss://stream.binance.com:9443/ws/btcusdt@aggTrade");
+  console.log(`[Oracle:${config.label}] Connecting to Binance WS...`);
+  state.ws = new WebSocket(config.wsUrl);
 
-  ws.on("open", () => {
-    console.log("[Oracle] Binance WS connected");
-    lastPriceUpdateTime = Date.now();
+  state.ws.on("open", () => {
+    console.log(`[Oracle:${config.label}] Binance WS connected`);
+    state.lastPriceUpdateTime = Date.now();
   });
 
-  ws.on("message", (data: WebSocket.Data) => {
+  state.ws.on("message", (data: WebSocket.Data) => {
     try {
       const trade = JSON.parse(data.toString());
       const price = parseFloat(trade.p);
-      latestPrice = price;
-      lastPriceUpdateTime = Date.now();
+      state.latestPrice = price;
+      state.lastPriceUpdateTime = Date.now();
 
-      // Track high/low for this interval
-      if (intervalHigh === 0) {
-        // First price after reset or startup
-        intervalHigh = price;
-        intervalLow = price;
+      if (state.intervalHigh === 0) {
+        state.intervalHigh = price;
+        state.intervalLow = price;
       } else {
-        trackPrice(price);
+        trackPrice(state, price);
       }
 
-      // Push at interval, only if not already pushing
       const now = Date.now();
-      if (now - lastPushTime >= PUSH_INTERVAL_MS && !isPushing) {
+      if (now - state.lastPushTime >= PUSH_INTERVAL_MS && !state.isPushing) {
         const timestamp = Math.floor(trade.T / 1000);
-        const pushHigh = intervalHigh;
-        const pushLow = intervalLow;
+        const pushHigh = state.intervalHigh;
+        const pushLow = state.intervalLow;
         const pushClose = price;
-        // Reset interval tracking for next window
-        resetInterval();
-        pushPriceRange(pushHigh, pushLow, pushClose, timestamp);
+        resetInterval(state);
+        pushPriceRange(config, state, pushHigh, pushLow, pushClose, timestamp);
       }
     } catch {}
   });
 
-  ws.on("close", () => {
-    console.log("[Oracle] Binance WS disconnected, reconnecting in 3s...");
-    ws = null;
-    scheduleReconnect();
+  state.ws.on("close", () => {
+    console.log(`[Oracle:${config.label}] Binance WS disconnected, reconnecting in 3s...`);
+    state.ws = null;
+    scheduleReconnect(config, state);
   });
 
-  ws.on("error", (err: Error) => {
-    console.error(`[Oracle] WS error: ${err.message}`);
-    try { ws?.close(); } catch {}
-    ws = null;
-    scheduleReconnect();
+  state.ws.on("error", (err: Error) => {
+    console.error(`[Oracle:${config.label}] WS error: ${err.message}`);
+    try { state.ws?.close(); } catch {}
+    state.ws = null;
+    scheduleReconnect(config, state);
   });
 }
 
-function scheduleReconnect() {
-  if (reconnectTimer) return;
-  reconnectTimer = setTimeout(() => {
-    reconnectTimer = null;
-    connectBinance();
+function scheduleReconnect(config: OracleConfig, state: OracleUpdaterState) {
+  if (state.reconnectTimer) return;
+  state.reconnectTimer = setTimeout(() => {
+    state.reconnectTimer = null;
+    connectBinance(config, state);
   }, 3000);
 }
 
 // ── Watchdog ────────────────────────────────────────────────────────────────
-// Periodically checks for stale state and auto-recovers.
 
-function startWatchdog() {
-  if (watchdogTimer) return;
-  watchdogTimer = setInterval(() => {
+function startWatchdog(config: OracleConfig, state: OracleUpdaterState) {
+  if (state.watchdogTimer) return;
+  state.watchdogTimer = setInterval(() => {
     const now = Date.now();
 
-    // Check if WebSocket has gone silent (connected but no messages)
-    if (lastPriceUpdateTime > 0 && now - lastPriceUpdateTime > STALE_WS_MS) {
-      console.warn(`[Oracle] No WS message for ${((now - lastPriceUpdateTime) / 1000).toFixed(0)}s, forcing reconnect`);
-      lastPriceUpdateTime = now; // Prevent spam
-      try { ws?.close(); } catch {}
-      ws = null;
-      scheduleReconnect();
+    if (state.lastPriceUpdateTime > 0 && now - state.lastPriceUpdateTime > config.staleWsMs) {
+      console.warn(`[Oracle:${config.label}] No WS message for ${((now - state.lastPriceUpdateTime) / 1000).toFixed(0)}s, forcing reconnect`);
+      state.lastPriceUpdateTime = now;
+      try { state.ws?.close(); } catch {}
+      state.ws = null;
+      scheduleReconnect(config, state);
     }
 
-    // Check if isPushing is stuck
-    if (isPushing && now - pushStartTime > PUSH_TIMEOUT_MS) {
-      console.warn(`[Oracle] Watchdog: push stuck for ${((now - pushStartTime) / 1000).toFixed(0)}s, force-resetting`);
-      isPushing = false;
+    if (state.isPushing && now - state.pushStartTime > PUSH_TIMEOUT_MS) {
+      console.warn(`[Oracle:${config.label}] Watchdog: push stuck for ${((now - state.pushStartTime) / 1000).toFixed(0)}s, force-resetting`);
+      state.isPushing = false;
     }
   }, 5000);
 }
 
 // ── Public API ──────────────────────────────────────────────────────────────
 
-export function startOracleUpdater() {
-  connectBinance();
-  startWatchdog();
-}
-
-export function stopOracleUpdater() {
-  if (ws) {
-    try { ws.close(); } catch {}
-    ws = null;
-  }
-  if (reconnectTimer) {
-    clearTimeout(reconnectTimer);
-    reconnectTimer = null;
-  }
-  if (watchdogTimer) {
-    clearInterval(watchdogTimer);
-    watchdogTimer = null;
+export function startOracleUpdater(symbol?: AssetSymbol) {
+  const symbols: AssetSymbol[] = symbol ? [symbol] : ["btc", "flow"];
+  for (const sym of symbols) {
+    const config = ASSET_CONFIGS[sym];
+    const state = createState();
+    updaters.set(sym, state);
+    connectBinance(config, state);
+    startWatchdog(config, state);
+    console.log(`[Oracle:${config.label}] Updater started`);
   }
 }
 
-export function getLatestBinancePrice(): number {
-  return latestPrice;
+export function stopOracleUpdater(symbol?: AssetSymbol) {
+  const symbols: AssetSymbol[] = symbol ? [symbol] : (Array.from(updaters.keys()) as AssetSymbol[]);
+  for (const sym of symbols) {
+    const state = updaters.get(sym);
+    if (!state) continue;
+    if (state.ws) {
+      try { state.ws.close(); } catch {}
+      state.ws = null;
+    }
+    if (state.reconnectTimer) {
+      clearTimeout(state.reconnectTimer);
+      state.reconnectTimer = null;
+    }
+    if (state.watchdogTimer) {
+      clearInterval(state.watchdogTimer);
+      state.watchdogTimer = null;
+    }
+    updaters.delete(sym);
+  }
 }
 
-export function getOracleHealth(): { price: number; lastPushMs: number; stale: boolean } {
+export function getLatestPrice(symbol: AssetSymbol = "btc"): number {
+  return updaters.get(symbol)?.latestPrice ?? 0;
+}
+
+export function getOracleHealth(symbol: AssetSymbol = "btc"): { price: number; lastPushMs: number; stale: boolean } {
+  const state = updaters.get(symbol);
+  if (!state) {
+    return { price: 0, lastPushMs: 0, stale: true };
+  }
   return {
-    price: latestPrice,
-    lastPushMs: Date.now() - lastPushTime,
-    stale: Date.now() - lastPushTime > 30000,
+    price: state.latestPrice,
+    lastPushMs: Date.now() - state.lastPushTime,
+    stale: Date.now() - state.lastPushTime > 30000,
   };
+}
+
+// Backward compat — kept for any code that still calls the old name
+export function getLatestBinancePrice(): number {
+  return getLatestPrice("btc");
 }

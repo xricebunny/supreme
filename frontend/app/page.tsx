@@ -8,6 +8,7 @@ import { useAnimationTime } from "@/hooks/useAnimationTime";
 import { useBalance } from "@/hooks/useBalance";
 import { useBetManager } from "@/hooks/useBetManager";
 import { useBackendHealth } from "@/hooks/useBackendHealth";
+import { useTokenSelector } from "@/hooks/useTokenSelector";
 import Sidebar from "@/components/Sidebar";
 import PriceDisplay from "@/components/PriceDisplay";
 import GameGrid from "@/components/GameGrid";
@@ -23,9 +24,10 @@ const BASE_CELL_HEIGHT = 56;
 export default function TradePage() {
   const { address } = useAuth();
   const { magic } = useMagic();
-  const { currentPrice, priceHistory, connected, timedOut } = useBinancePrice();
+  const { token, setToken, tokenPair } = useTokenSelector();
+  const { currentPrice, priceHistory, connected, timedOut } = useBinancePrice(token);
   const { betSize, setBetSize } = useGameState(currentPrice);
-  const backendHealth = useBackendHealth();
+  const backendHealth = useBackendHealth(token);
 
   // Magic.link authorization function for FCL
   const magicLinkAuthz = magic?.flow?.authorization;
@@ -41,7 +43,8 @@ export default function TradePage() {
     magicLinkAuthz,
     priceHistory,
     deductOptimisticStable,
-    addOptimisticStable
+    addOptimisticStable,
+    token
   );
 
   // PYUSD balance management — uses queueTx to serialize mint with bet txs
@@ -123,7 +126,7 @@ export default function TradePage() {
       <div className="flex-1 flex flex-col min-w-0 min-h-0">
         {/* Top bar */}
         <div
-          className="flex-shrink-0 flex items-center justify-between px-4 py-3"
+          className="flex-shrink-0 flex items-center justify-between px-4 py-3 relative z-50"
           style={{
             background: "rgba(10, 15, 13, 0.9)",
             backdropFilter: "blur(8px)",
@@ -131,7 +134,7 @@ export default function TradePage() {
           }}
         >
           <div className="flex items-center gap-3">
-            <PriceDisplay price={currentPrice} />
+            <PriceDisplay price={currentPrice} symbol={token} onSymbolChange={setToken} />
             <div
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-full"
               style={{
@@ -258,7 +261,7 @@ export default function TradePage() {
                       : "Connecting to Binance..."}
                 </div>
                 <div className="text-xs" style={{ color: "#4a7a66" }}>
-                  BTC / USDT
+                  {tokenPair}
                 </div>
               </div>
             </div>

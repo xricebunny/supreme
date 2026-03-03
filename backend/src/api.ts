@@ -5,7 +5,7 @@ const EC = elliptic.ec;
 import { SHA3 } from "sha3";
 import * as t from "@onflow/types";
 import { getMultiplier } from "./multiplier.js";
-import { getLatestBinancePrice, getOracleHealth } from "./oracle-updater.js";
+import { getLatestPrice, getOracleHealth, type AssetSymbol } from "./oracle-updater.js";
 import { executeScript, sendTransaction, ADMIN_ADDRESS, getTotalKeys, fcl } from "./flow-client.js";
 
 const ec = new EC("p256");
@@ -14,6 +14,7 @@ const ADMIN_PRIVATE_KEY = process.env.FLOW_ADMIN_PRIVATE_KEY!;
 // ── Validation Helpers ──────────────────────────────────────────────────────
 
 const FLOW_ADDRESS_RE = /^0x[0-9a-fA-F]{16}$/;
+const VALID_SYMBOLS = new Set<AssetSymbol>(["btc", "flow"]);
 
 function isValidFlowAddress(addr: string): boolean {
   return typeof addr === "string" && FLOW_ADDRESS_RE.test(addr);
@@ -23,23 +24,46 @@ function isFinitePositive(v: unknown): v is number {
   return typeof v === "number" && Number.isFinite(v) && v > 0;
 }
 
-// ── Cadence Scripts ─────────────────────────────────────────────────────────
+function parseSymbol(raw: unknown): AssetSymbol {
+  const s = (typeof raw === "string" ? raw.toLowerCase() : "btc") as AssetSymbol;
+  return VALID_SYMBOLS.has(s) ? s : "btc";
+}
 
-const GET_POSITIONS_CDC = `
+// ── Cadence Scripts (per asset) ─────────────────────────────────────────────
+
+const POSITIONS_CDC: Record<AssetSymbol, string> = {
+  btc: `
 import PredictionGame from 0xPredictionGame
 
 access(all) fun main(address: Address): [PredictionGame.Position] {
     return PredictionGame.listUserPositions(address: address)
 }
-`;
+`,
+  flow: `
+import FlowPredictionGame from 0xFlowPredictionGame
 
-const GET_HOUSE_BALANCE_CDC = `
+access(all) fun main(address: Address): [FlowPredictionGame.Position] {
+    return FlowPredictionGame.listUserPositions(address: address)
+}
+`,
+};
+
+const HOUSE_BALANCE_CDC: Record<AssetSymbol, string> = {
+  btc: `
 import PredictionGame from 0xPredictionGame
 
 access(all) fun main(): UFix64 {
     return PredictionGame.getHouseBalance()
 }
-`;
+`,
+  flow: `
+import FlowPredictionGame from 0xFlowPredictionGame
+
+access(all) fun main(): UFix64 {
+    return FlowPredictionGame.getHouseBalance()
+}
+`,
+};
 
 // ── Signing Helper ──────────────────────────────────────────────────────────
 
@@ -66,7 +90,8 @@ export function createApp() {
   // Returns the computed parameters the frontend needs.
   app.post("/api/sign-bet", (req, res) => {
     try {
-      const { targetPrice, priceTop, priceBottom, aboveTarget, betSize, rowDist, colDist } = req.body;
+      const { targetPrice, priceTop, priceBottom, aboveTarget, betSize, rowDist, colDist, symbol: rawSymbol } = req.body;
+      const symbol = parseSymbol(rawSymbol);
 
       // ── Type & presence checks ──
       if (!isFinitePositive(targetPrice)) {
@@ -96,10 +121,10 @@ export function createApp() {
         return res.status(400).json({ error: "rowDist cannot exceed 20" });
       }
 
-      // Get current Binance price as the entry price
-      const entryPrice = getLatestBinancePrice();
+      // Get current Binance price for the requested asset
+      const entryPrice = getLatestPrice(symbol);
       if (entryPrice === 0) {
-        return res.status(503).json({ error: "Oracle not ready, no Binance price available" });
+        return res.status(503).json({ error: `Oracle not ready, no Binance price available for ${symbol.toUpperCase()}` });
       }
 
       // Sanity: targetPrice shouldn't be wildly far from current price (>50% away)
@@ -119,7 +144,7 @@ export function createApp() {
 
       return res.json({
         entryPrice,
-        multiplier: Math.round(multiplier * 100) / 100, // Round to 2 decimals
+        multiplier: Math.round(multiplier * 100) / 100,
         durationBlocks,
         expiryTimestamp,
         aboveTarget: aboveTarget ?? (targetPrice > entryPrice),
@@ -139,7 +164,6 @@ export function createApp() {
       if (!message || typeof message !== "string") {
         return res.status(400).json({ error: "Missing or invalid message" });
       }
-      // Message should be a hex-encoded string
       if (!/^[0-9a-fA-F]+$/.test(message)) {
         return res.status(400).json({ error: "Message must be hex-encoded" });
       }
@@ -158,7 +182,6 @@ export function createApp() {
   });
 
   // ── POST /api/fund-account ─────────────────────────────────────────────
-  // Sends a small amount of FLOW to a user address so they have storage capacity.
   const fundedAccounts = new Set<string>();
 
   app.post("/api/fund-account", async (req, res) => {
@@ -168,12 +191,10 @@ export function createApp() {
         return res.status(400).json({ error: "Missing or invalid Flow address (expected 0x + 16 hex chars)" });
       }
 
-      // Only fund each account once per backend session
       if (fundedAccounts.has(address)) {
         return res.json({ status: "already_funded" });
       }
 
-      // Check if account already has enough FLOW for storage
       try {
         const account = await fcl.account(address);
         const balanceFlow = Number(account.balance) / 100_000_000;
@@ -185,25 +206,6 @@ export function createApp() {
         // Account might not exist yet, try funding anyway
       }
 
-      // Send 0.1 FLOW from admin to user
-      const FUND_ACCOUNT_CDC = `
-        transaction(recipient: Address, amount: UFix64) {
-            prepare(signer: auth(BorrowValue) &Account) {
-                let vaultRef = signer.storage.borrow<auth(FungibleToken.Withdraw) &FlowToken.Vault>(
-                    from: /storage/flowTokenVault
-                ) ?? panic("Could not borrow FlowToken vault")
-                let sentVault <- vaultRef.withdraw(amount: amount)
-                let receiverRef = getAccount(recipient)
-                    .capabilities.get<&{FungibleToken.Receiver}>(/public/flowTokenReceiver)
-                    .borrow() ?? panic("Could not borrow receiver")
-                receiverRef.deposit(from: <-sentVault)
-            }
-        }
-        import FungibleToken from 0xFungibleToken
-        import FlowToken from 0xFlowToken
-      `;
-
-      // Flow Cadence requires imports at the top — restructure
       const FUND_CDC = `
 import FungibleToken from 0x9a0766d93b6608b7
 import FlowToken from 0x7e60df042a9c0868
@@ -242,8 +244,9 @@ transaction(recipient: Address, amount: UFix64) {
   });
 
   // ── GET /api/price ──────────────────────────────────────────────────────
-  app.get("/api/price", (_req, res) => {
-    const health = getOracleHealth();
+  app.get("/api/price", (req, res) => {
+    const symbol = parseSymbol(req.query.symbol);
+    const health = getOracleHealth(symbol);
     return res.json({
       price: health.price,
       stale: health.stale,
@@ -255,10 +258,11 @@ transaction(recipient: Address, amount: UFix64) {
   app.get("/api/positions/:address", async (req, res) => {
     try {
       const { address } = req.params;
+      const symbol = parseSymbol(req.query.symbol);
       if (!isValidFlowAddress(address)) {
         return res.status(400).json({ error: "Invalid Flow address" });
       }
-      const positions = await executeScript(GET_POSITIONS_CDC, (arg: typeof fcl.arg, t: any) => [
+      const positions = await executeScript(POSITIONS_CDC[symbol], (arg: typeof fcl.arg, t: any) => [
         arg(address, t.Address),
       ]);
       return res.json({ positions: positions || [] });
@@ -269,9 +273,10 @@ transaction(recipient: Address, amount: UFix64) {
   });
 
   // ── GET /api/house-balance ──────────────────────────────────────────────
-  app.get("/api/house-balance", async (_req, res) => {
+  app.get("/api/house-balance", async (req, res) => {
     try {
-      const balance = await executeScript(GET_HOUSE_BALANCE_CDC);
+      const symbol = parseSymbol(req.query.symbol);
+      const balance = await executeScript(HOUSE_BALANCE_CDC[symbol]);
       return res.json({ balance });
     } catch (err: any) {
       return res.status(500).json({ error: "Failed to fetch house balance" });
@@ -279,11 +284,21 @@ transaction(recipient: Address, amount: UFix64) {
   });
 
   // ── GET /api/health ─────────────────────────────────────────────────────
-  app.get("/api/health", (_req, res) => {
-    const oracle = getOracleHealth();
+  app.get("/api/health", (req, res) => {
+    const symbol = parseSymbol(req.query.symbol);
+    const oracle = getOracleHealth(symbol);
+
+    // Also return the other oracle's health for the full picture
+    const otherSymbol: AssetSymbol = symbol === "btc" ? "flow" : "btc";
+    const otherOracle = getOracleHealth(otherSymbol);
+
     return res.json({
       status: oracle.stale ? "degraded" : "healthy",
       oracle,
+      oracles: {
+        btc: symbol === "btc" ? oracle : otherOracle,
+        flow: symbol === "flow" ? oracle : otherOracle,
+      },
       adminAddress: ADMIN_ADDRESS,
       keys: getTotalKeys(),
     });

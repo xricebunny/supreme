@@ -6,9 +6,11 @@ import * as fcl from "@onflow/fcl";
 import * as t from "@onflow/types";
 import { signBet } from "@/lib/api";
 import { serverAuthorization } from "@/lib/serverSigner";
-import { OPEN_POSITION } from "@/lib/transactions";
+import { OPEN_POSITION, OPEN_FLOW_POSITION } from "@/lib/transactions";
 import { getMultiplier } from "@/lib/multiplier";
 import { PricePoint } from "@/types";
+import type { TokenSymbol } from "./useBinancePrice";
+import { TOKEN_LABELS } from "./useTokenSelector";
 
 export type BetStatus = "active" | "won" | "lost" | "failed";
 
@@ -53,7 +55,8 @@ export function useBetManager(
   magicLinkAuthz: any,
   priceHistory: PricePoint[],
   deductBalance: (amount: number) => void,
-  addBalance: (amount: number) => void
+  addBalance: (amount: number) => void,
+  token: TokenSymbol = "btc"
 ): UseBetManagerReturn {
   const [activeBets, setActiveBets] = useState<ActiveBet[]>([]);
 
@@ -72,6 +75,11 @@ export function useBetManager(
   useEffect(() => {
     addBalanceRef.current = addBalance;
   }, [addBalance]);
+
+  const tokenRef = useRef(token);
+  useEffect(() => {
+    tokenRef.current = token;
+  }, [token]);
 
   // ── Expiry Resolution + Cleanup ─────────────────────────────────────────
   // Check active bets every 200ms to see if they've expired.
@@ -105,13 +113,11 @@ export function useBetManager(
             .map((bet) => {
               if (bet.status !== "active") return bet;
 
-              // The price line tip is drawn at the center of the current-time column
-              // (PriceLine uses currentTimeCol + 0.5), so it visually enters the next
-              // cell 2500ms before the cell's grid-aligned startTimestamp.
-              // Shift the resolution window to match the visual.
-              const VISUAL_OFFSET_MS = 2500;
-              const visualStartMs = bet.startTimestamp - VISUAL_OFFSET_MS;
-              const visualEndMs = visualStartMs + 5000;
+              // Resolution window matches the cell's grid-aligned time window.
+              // The price line tip is drawn at the actual current timestamp
+              // (no half-column offset), so no visual shift is needed.
+              const visualStartMs = bet.startTimestamp;
+              const visualEndMs = bet.expiryTimestamp;
 
               // Check all prices from visual start up to now (capped at visual end)
               const relevantPrices = prices.filter(
@@ -133,7 +139,7 @@ export function useBetManager(
                   addBalanceRef.current(bet.payout);
                   console.log(
                     `[Bet] ✅ WON ${bet.id}: $${bet.betSize} → +$${bet.payout.toFixed(2)} | ` +
-                    `BTC in $${bet.priceBottom.toFixed(2)}–$${bet.priceTop.toFixed(2)} (${bet.multiplier.toFixed(2)}x) | ` +
+                    `price in $${bet.priceBottom.toFixed(2)}–$${bet.priceTop.toFixed(2)} (${bet.multiplier.toFixed(2)}x) | ` +
                     `${relevantPrices.length} prices checked`
                   );
                 });
@@ -147,7 +153,7 @@ export function useBetManager(
               pendingEffects.push(() => {
                 console.log(
                   `[Bet] ❌ LOST ${bet.id}: -$${bet.betSize} | ` +
-                  `BTC never in $${bet.priceBottom.toFixed(2)}–$${bet.priceTop.toFixed(2)} | ` +
+                  `price never in $${bet.priceBottom.toFixed(2)}–$${bet.priceTop.toFixed(2)} | ` +
                   `${relevantPrices.length} prices checked, ` +
                   `range: $${relevantPrices.length > 0 ? relevantPrices.reduce((min, p) => Math.min(min, p.price), Infinity).toFixed(2) : "?"} – ` +
                   `$${relevantPrices.length > 0 ? relevantPrices.reduce((max, p) => Math.max(max, p.price), 0).toFixed(2) : "?"}`
@@ -214,8 +220,11 @@ export function useBetManager(
       setActiveBets((prev) => [...prev, newBet]);
       deductBalance(params.betSize);
 
+      const currentToken = tokenRef.current;
+      const tokenLabel = TOKEN_LABELS[currentToken];
+
       console.log(
-        `[Bet] PLACED ${betId}: $${params.betSize} on BTC in $${params.priceBottom.toFixed(2)}–$${params.priceTop.toFixed(2)} | ` +
+        `[Bet] PLACED ${betId}: $${params.betSize} on ${tokenLabel} in $${params.priceBottom.toFixed(2)}–$${params.priceTop.toFixed(2)} | ` +
         `${estimatedMultiplier.toFixed(2)}x → $${payout.toFixed(2)} payout | ` +
         `window ${((expiryMs - 5000 - now) / 1000).toFixed(0)}s–${((expiryMs - now) / 1000).toFixed(0)}s from now`
       );
@@ -234,6 +243,7 @@ export function useBetManager(
             betSize: params.betSize,
             rowDist: params.rowDist,
             colDist: params.colDist,
+            symbol: currentToken,
           });
 
           // Update bet with server-computed multiplier (only if still active —
@@ -252,8 +262,9 @@ export function useBetManager(
           );
 
           // 2. Build and submit multi-auth transaction
+          const cadenceTemplate = currentToken === "flow" ? OPEN_FLOW_POSITION : OPEN_POSITION;
           const txId = await fcl.mutate({
-            cadence: OPEN_POSITION,
+            cadence: cadenceTemplate,
             args: (arg: typeof fcl.arg) => [
               arg(params.betSize.toFixed(8), t.UFix64),
               arg(params.targetPrice.toFixed(8), t.UFix64),

@@ -88,6 +88,52 @@ transaction(
 }
 `;
 
+export const OPEN_FLOW_POSITION = `
+import FungibleToken from 0xFungibleToken
+import MockPYUSD from 0xMockPYUSD
+import FlowPredictionGame from 0xFlowPredictionGame
+
+transaction(
+    amount: UFix64,
+    targetPrice: UFix64,
+    aboveTarget: Bool,
+    multiplier: UFix64,
+    entryPrice: UFix64,
+    durationBlocks: UInt64,
+    expiryTimestamp: UFix64
+) {
+    let userVault: @MockPYUSD.Vault
+    let admin: &FlowPredictionGame.Admin
+    let userAddress: Address
+
+    prepare(user: auth(BorrowValue) &Account, admin: auth(BorrowValue) &Account) {
+        let vaultRef = user.storage.borrow<auth(FungibleToken.Withdraw) &MockPYUSD.Vault>(
+            from: MockPYUSD.VaultStoragePath
+        ) ?? panic("Could not borrow user's PYUSD vault")
+
+        self.userVault <- vaultRef.withdraw(amount: amount) as! @MockPYUSD.Vault
+        self.userAddress = user.address
+
+        self.admin = admin.storage.borrow<&FlowPredictionGame.Admin>(
+            from: FlowPredictionGame.AdminStoragePath
+        ) ?? panic("Could not borrow FlowPredictionGame Admin")
+    }
+
+    execute {
+        self.admin.openPosition(
+            userVault: <-self.userVault,
+            owner: self.userAddress,
+            targetPrice: targetPrice,
+            aboveTarget: aboveTarget,
+            multiplier: multiplier,
+            entryPrice: entryPrice,
+            durationBlocks: durationBlocks,
+            expiryTimestamp: expiryTimestamp
+        )
+    }
+}
+`;
+
 export const GET_PYUSD_BALANCE = `
 import FungibleToken from 0xFungibleToken
 import MockPYUSD from 0xMockPYUSD

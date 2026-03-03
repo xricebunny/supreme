@@ -30,17 +30,17 @@ async function main() {
   // Detect available keys for parallel tx submission
   await detectKeyCount();
 
-  // Start oracle updater (Binance WS → on-chain price pushes)
+  // Start oracle updaters for all assets (Binance WS → on-chain price pushes)
   startOracleUpdater();
-  console.log("[Init] Oracle updater started");
+  console.log("[Init] Oracle updaters started (BTC + FLOW)");
 
-  // Start settlement bot (poll expired positions → settle)
+  // Start settlement bots for all assets (poll expired positions → settle)
   startSettlementBot();
-  console.log("[Init] Settlement bot started");
+  console.log("[Init] Settlement bots started (BTC + FLOW)");
 
-  // Start house funder (auto-mint PYUSD when house balance gets low)
+  // Start house funders for all assets (auto-mint PYUSD when house balance gets low)
   startHouseFunder();
-  console.log("[Init] House funder started");
+  console.log("[Init] House funders started (BTC + FLOW)");
 
   // Start API server
   const app = createApp();
