@@ -60,12 +60,13 @@ export default function GameGrid({
   const totalGridHeight = TOTAL_ROWS * cellHeight;
   const visibleHeight = VISIBLE_ROWS * cellHeight;
 
-  // Dynamic price step using 1-2-5 "nice number" series.
-  // Target: price / 10,000 → gives $10 for BTC ($96k), $0.20 for ETH ($2.7k), etc.
-  const rawStep = currentPrice > 0 ? currentPrice / 10000 : 0.00005;
+  // Dynamic price step using 1-2-5-10 "nice number" series.
+  // Sub-dollar assets use /1000 divisor for wider rows; $10+ uses /10000.
+  const divisor = currentPrice < 1 ? 1000 : 10000;
+  const rawStep = currentPrice > 0 ? currentPrice / divisor : 0.00005;
   const stepExp = Math.floor(Math.log10(rawStep));
   const stepFrac = rawStep / Math.pow(10, stepExp);
-  const niceMultiplier = stepFrac < 1.5 ? 1 : stepFrac < 3.5 ? 2 : 10;
+  const niceMultiplier = stepFrac < 1.5 ? 1 : stepFrac < 3.5 ? 2 : stepFrac < 7.5 ? 5 : 10;
   const priceStep = niceMultiplier * Math.pow(10, stepExp);
 
   // Stable grid anchor — set once on first price, then only re-anchor when price

@@ -157,7 +157,14 @@ export async function sendTransaction(
       authorizations: [authz as any],
     });
 
-    const result = await fcl.tx(txId).onceSealed();
+    // Race onceSealed against a timeout so stuck txs don't permanently lock keys
+    const SEAL_TIMEOUT_MS = 25000;
+    const result = await Promise.race([
+      fcl.tx(txId).onceSealed(),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error(`Tx ${txId.slice(0, 8)}... seal timeout (${SEAL_TIMEOUT_MS / 1000}s)`)), SEAL_TIMEOUT_MS)
+      ),
+    ]);
     return {
       txId,
       status: result.status,

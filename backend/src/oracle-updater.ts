@@ -17,6 +17,7 @@ interface OracleUpdaterState {
   ws: WebSocket | null;
   reconnectTimer: ReturnType<typeof setTimeout> | null;
   watchdogTimer: ReturnType<typeof setInterval> | null;
+  keepAliveTimer: ReturnType<typeof setInterval> | null;
 }
 
 interface OracleConfig {
@@ -31,6 +32,9 @@ interface OracleConfig {
 
 const PUSH_INTERVAL_MS = 4000;
 const PUSH_TIMEOUT_MS = 30000;
+/** Re-push the last known price if no trade-triggered push has happened within this window.
+ *  Keeps the oracle fresh for low-volume pairs like FLOW/USDT. */
+const KEEP_ALIVE_PUSH_MS = 10000;
 
 // ── Per-asset state ────────────────────────────────────────────────────────
 
@@ -123,6 +127,7 @@ function createState(): OracleUpdaterState {
     ws: null,
     reconnectTimer: null,
     watchdogTimer: null,
+    keepAliveTimer: null,
   };
 }
 
@@ -266,6 +271,25 @@ function startWatchdog(config: OracleConfig, state: OracleUpdaterState) {
 
 // ── Public API ──────────────────────────────────────────────────────────────
 
+// ── Keep-Alive Push ─────────────────────────────────────────────────────
+// For low-volume pairs, re-push the last known price so the oracle doesn't go stale.
+
+function startKeepAlive(config: OracleConfig, state: OracleUpdaterState) {
+  if (state.keepAliveTimer) return;
+  state.keepAliveTimer = setInterval(() => {
+    if (state.latestPrice === 0 || state.isPushing) return;
+    const sincePush = Date.now() - state.lastPushTime;
+    if (sincePush < KEEP_ALIVE_PUSH_MS) return;
+
+    const price = state.latestPrice;
+    const high = state.intervalHigh || price;
+    const low = state.intervalLow === Infinity ? price : state.intervalLow;
+    const timestamp = Math.floor(Date.now() / 1000);
+    resetInterval(state);
+    pushPriceRange(config, state, high, low, price, timestamp);
+  }, KEEP_ALIVE_PUSH_MS);
+}
+
 export function startOracleUpdater(symbol?: AssetSymbol) {
   const symbols: AssetSymbol[] = symbol ? [symbol] : ["btc", "flow"];
   for (const sym of symbols) {
@@ -274,6 +298,7 @@ export function startOracleUpdater(symbol?: AssetSymbol) {
     updaters.set(sym, state);
     connectBinance(config, state);
     startWatchdog(config, state);
+    startKeepAlive(config, state);
     console.log(`[Oracle:${config.label}] Updater started`);
   }
 }
@@ -294,6 +319,10 @@ export function stopOracleUpdater(symbol?: AssetSymbol) {
     if (state.watchdogTimer) {
       clearInterval(state.watchdogTimer);
       state.watchdogTimer = null;
+    }
+    if (state.keepAliveTimer) {
+      clearInterval(state.keepAliveTimer);
+      state.keepAliveTimer = null;
     }
     updaters.delete(sym);
   }
