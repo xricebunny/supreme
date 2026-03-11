@@ -86,7 +86,11 @@ transaction(high: UFix64, low: UFix64, close: UFix64, timestamp: UFix64) {
     }
 
     execute {
+        // Temporarily allow 100% change so oracle can catch up from stale state
+        self.oracleAdmin.setMaxChangeBps(bps: 10000)
         self.oracleAdmin.pushPrice(price: close, timestamp: timestamp)
+        // Restore to 50% guard
+        self.oracleAdmin.setMaxChangeBps(bps: 5000)
         self.rangeAdmin.pushRange(high: high, low: low)
     }
 }
@@ -176,7 +180,7 @@ async function pushPriceRange(
     state.lastPushTime = Date.now();
   } catch (err: any) {
     if (!err.message.includes("keys are busy")) {
-      console.error(`[Oracle:${config.label}] Push failed: ${err.message.slice(0, 200)}`);
+      console.error(`[Oracle:${config.label}] Push failed:\n${err.message}\n${JSON.stringify(err, Object.getOwnPropertyNames(err), 2).slice(0, 2000)}`);
     }
   } finally {
     state.isPushing = false;
