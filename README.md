@@ -1,6 +1,6 @@
-# Supreme — BTC Price Prediction Game on Flow
+# Supreme — Price Prediction Game on Flow
 
-Real-time grid-based BTC price prediction game. Click a cell on the price/time grid to bet that BTC will touch that price level within the cell's 5-second window. Instant optimistic UI, on-chain settlement via multi-auth Flow transactions.
+Real-time grid-based price prediction game supporting BTC and FLOW. Click a cell on the price/time grid to bet that the asset's price will touch that price level within the cell's 5-second window. Instant optimistic UI, on-chain settlement via multi-auth Flow transactions.
 
 ## Quick Start
 
@@ -20,30 +20,33 @@ Frontend: http://localhost:3000 | Backend API: http://localhost:3001
 ## Architecture
 
 ```
-┌─────────────┐     ┌─────────────────┐     ┌──────────────────┐
-│   Frontend   │────▶│     Backend      │────▶│   Flow Testnet   │
-│  Next.js 14  │◀────│  Express :3001   │◀────│ 0xb36266e524c6c7 │
-│   :3000      │     │                  │     │                  │
-└──────┬───────┘     │ • Oracle Updater │     │ • MockPYUSD      │
-       │             │ • Settlement Bot │     │ • PriceOracle    │
-       │             │ • Sign API       │     │ • PredictionGame │
-       │             └────────┬─────────┘     └──────────────────┘
-       │                      │
-       ▼                      ▼
-┌─────────────┐     ┌─────────────────┐
+┌─────────────┐     ┌─────────────────┐     ┌───────────────────────┐
+│   Frontend   │────▶│     Backend      │────▶│     Flow Testnet      │
+│  Next.js 14  │◀────│  Express :3001   │◀────│  0xb36266e524c6c727   │
+│   :3000      │     │                  │     │                       │
+└──────┬───────┘     │ • Oracle Updater │     │ • MockPYUSD           │
+       │             │ • Settlement Bot │     │ • PriceOracle         │
+       │             │ • House Funder   │     │ • PriceRangeOracle    │
+       │             │ • Sign API       │     │ • PredictionGame      │
+       │             └────────┬─────────┘     │ • FlowPriceOracle     │
+       │                      │               │ • FlowPriceRangeOracle│
+       ▼                      ▼               │ • FlowPredictionGame  │
+┌─────────────┐     ┌─────────────────┐     └───────────────────────┘
 │ Magic.link   │     │    Binance WS    │
 │ (user auth)  │     │ btcusdt@aggTrade │
-└──────────────┘     └─────────────────┘
+└──────────────┘     │ flowusdt@aggTrade│
+                     └─────────────────┘
 ```
 
 ## How It Works
 
-1. User clicks a future cell on the grid (each cell = price band × 5s time window)
+1. User selects asset (BTC or FLOW) and clicks a future cell on the grid (each cell = price band × 5s time window)
 2. Cell highlights instantly (cyan pulse) — optimistic UI, balance deducted
 3. Backend co-signs: `POST /api/sign-bet` → validates params, computes multiplier
 4. Multi-auth Flow tx: Magic.link signs for user, backend signs as admin, backend pays gas
 5. At expiry: frontend checks Binance price history against the cell's price band
 6. Win → green flash, balance credited | Loss → red fade | Failed tx → balance restored
+7. Settlement bot settles expired positions on-chain every 10s; house funder auto-mints PYUSD when house balance drops below $10k
 
 ## Smart Contracts (Flow Testnet)
 
@@ -53,7 +56,11 @@ All deployed at **`0xb36266e524c6c727`**:
 |----------|---------|
 | `MockPYUSD` | FungibleToken with public `mint()` — testnet stablecoin |
 | `PriceOracle` | BTC price history indexed by block height, admin-gated pushPrice |
-| `PredictionGame` | Positions, house vault, multi-auth openPosition, oracle-based settlement |
+| `PriceRangeOracle` | High/low price ranges per oracle push (BTC) |
+| `PredictionGame` | BTC positions, house vault, multi-auth openPosition, oracle-based settlement |
+| `FlowPriceOracle` | FLOW price history (same design as PriceOracle) |
+| `FlowPriceRangeOracle` | High/low price ranges per oracle push (FLOW) |
+| `FlowPredictionGame` | FLOW positions — uses FlowToken instead of MockPYUSD |
 
 ## Project Structure
 
@@ -63,20 +70,22 @@ supreme/
 │   ├── app/                    # App Router (layout, page, providers)
 │   ├── components/             # GameGrid, PriceLine, Sidebar, BottomBar, LoginModal
 │   ├── contexts/               # AuthProvider (Magic.link), MagicProvider
-│   ├── hooks/                  # useBinancePrice, useAnimationTime, useBetManager, useBalance
+│   ├── hooks/                  # useBinancePrice, useAnimationTime, useBetManager, useBalance, useTokenSelector
 │   ├── lib/                    # api, flow config, serverSigner, transactions, multiplier, formatters
 │   └── types/
 ├── backend/                    # Express + TypeScript
 │   └── src/
-│       ├── index.ts            # Startup: FCL config → oracle → settlement bot → API
-│       ├── api.ts              # REST endpoints (sign-bet, sign, fund-account, price, health)
-│       ├── oracle-updater.ts   # Binance WS → pushPrice tx every ~4s
-│       ├── settlement-bot.ts   # Poll expired positions → settlePosition tx
-│       ├── flow-client.ts      # FCL config, key pool, FlowSigner
+│       ├── index.ts            # Startup: FCL config → key detection → oracle → settlement → house funder → API
+│       ├── api.ts              # REST endpoints (sign-bet, sign, fund-account, price, positions, health)
+│       ├── oracle-updater.ts   # Binance WS → pushPrice + pushRange tx every ~4s (BTC + FLOW)
+│       ├── settlement-bot.ts   # Poll expired positions → settlePosition tx (BTC + FLOW)
+│       ├── house-funder.ts     # Auto-mint PYUSD when house balance < $10k (every 60s)
+│       ├── flow-client.ts      # FCL config, key pool with rotation, FlowSigner (ECDSA P256)
 │       └── multiplier.ts       # Payout formula (mirrors frontend)
 ├── cadence/
-│   ├── contracts/              # MockPYUSD, PriceOracle, PredictionGame
-│   ├── transactions/           # openPosition, settlePosition, mintPYUSD, pushPrice, etc.
+│   ├── contracts/              # MockPYUSD, PriceOracle, PriceRangeOracle, PredictionGame,
+│   │                           # FlowPriceOracle, FlowPriceRangeOracle, FlowPredictionGame
+│   ├── transactions/           # openPosition, settlePosition, mintPYUSD, pushPrice, pushRange, etc.
 │   └── scripts/                # getPYUSDBalance, getPosition, listUnsettledExpired, etc.
 └── flow.json                   # Flow CLI config, testnet deployment addresses
 ```
@@ -85,23 +94,23 @@ supreme/
 
 | Layer | Tech |
 |-------|------|
-| Frontend | Next.js 14 (App Router), React 18, Tailwind CSS |
+| Frontend | Next.js 14 (App Router), React 18, Tailwind CSS, Framer Motion |
 | Backend | Express 4, TypeScript (tsx) |
 | Blockchain | Flow Testnet, Cadence smart contracts |
 | Auth | Magic.link (email → Flow wallet) |
-| Price Feed | Binance WebSocket (`btcusdt@aggTrade`, 200ms sampling) |
-| Signing | ECDSA P256 (elliptic + SHA3) |
+| Price Feed | Binance WebSocket (`btcusdt@aggTrade`, `flowusdt@aggTrade`, 200ms sampling) |
+| Signing | ECDSA P256 (elliptic + SHA3), key pool with rotation |
 
 ## API Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/api/sign-bet` | Validate bet params, compute multiplier, return signed params |
+| POST | `/api/sign-bet` | Validate bet params, compute multiplier, return signed params (accepts `symbol`) |
 | POST | `/api/sign` | Sign transaction envelope with admin key (multi-auth) |
-| POST | `/api/fund-account` | Send FLOW to user for storage (once per session) |
-| GET | `/api/price` | Current Binance BTC price + staleness info |
-| GET | `/api/positions/:address` | On-chain positions for a user |
-| GET | `/api/health` | Oracle status, admin address |
+| POST | `/api/fund-account` | Send 100 FLOW to user for storage (once per session) |
+| GET | `/api/price?symbol=btc\|flow` | Current Binance price + staleness info |
+| GET | `/api/positions/:address?symbol=btc\|flow` | On-chain positions for a user |
+| GET | `/api/health?symbol=btc\|flow` | Oracle status, admin address, active key count |
 
 ## Environment Variables
 
@@ -113,7 +122,12 @@ FLOW_ACCESS_NODE=https://rest-testnet.onflow.org
 PORT=3001
 ```
 
-**Frontend**: Flow config hardcoded in `frontend/lib/flow.ts`. Magic.link API key in `frontend/contexts/MagicProvider.tsx`.
+**Frontend** (via env or hardcoded):
+```
+NEXT_PUBLIC_MAGIC_API_KEY=<magic_link_api_key>
+NEXT_PUBLIC_API_URL=http://localhost:3001    # backend URL
+```
+Flow config hardcoded in `frontend/lib/flow.ts`.
 
 ## Grid Mechanics
 
