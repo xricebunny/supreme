@@ -30,7 +30,7 @@ access(all) fun main(): [PredictionGame.Position] {
     var id: UInt64 = 1
     while id <= totalPositions {
         if let position = PredictionGame.getPosition(positionId: id) {
-            if !position.settled && currentBlock >= position.expiryBlock {
+            if !position.settled && currentBlock >= position.expiryBlock + 30 {
                 expired.append(position)
             }
         }
@@ -71,7 +71,7 @@ access(all) fun main(): [FlowPredictionGame.Position] {
     var id: UInt64 = 1
     while id <= totalPositions {
         if let position = FlowPredictionGame.getPosition(positionId: id) {
-            if !position.settled && currentBlock >= position.expiryBlock {
+            if !position.settled && currentBlock >= position.expiryBlock + 30 {
                 expired.append(position)
             }
         }

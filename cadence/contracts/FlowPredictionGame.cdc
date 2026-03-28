@@ -128,9 +128,6 @@ access(all) contract FlowPredictionGame {
     /// Auto-incrementing position ID counter.
     access(contract) var positionCounter: UInt64
 
-    /// Total payout reserved for all unsettled positions.
-    access(contract) var totalReserved: UFix64
-
     // ── Admin resource ─────────────────────────────────────────────────────
 
     access(all) resource Admin {
@@ -158,13 +155,12 @@ access(all) contract FlowPredictionGame {
 
             let stake = userVault.balance
 
-            // Check house can cover potential payout (accounting for existing reservations)
+            // Check house can cover potential payout
             let potentialPayout = stake * multiplier
             assert(
-                FlowPredictionGame.houseVault.balance >= FlowPredictionGame.totalReserved + potentialPayout,
+                FlowPredictionGame.houseVault.balance >= potentialPayout,
                 message: "House cannot cover potential payout"
             )
-            FlowPredictionGame.totalReserved = FlowPredictionGame.totalReserved + potentialPayout
 
             let currentBlock = getCurrentBlock().height
             let expiryBlock = currentBlock + durationBlocks
@@ -224,14 +220,15 @@ access(all) contract FlowPredictionGame {
             assert(!position.settled, message: "Position already settled")
             assert(currentBlock >= position.expiryBlock, message: "Position not yet expired")
 
-            // Get all oracle price ranges during the position's lifetime.
+            let rangeEndBlock = position.expiryBlock + 30
+
             let ranges = FlowPriceRangeOracle.getRangesInRange(
                 startBlock: position.entryBlock,
-                endBlock: position.expiryBlock
+                endBlock: rangeEndBlock
             )
             let prices = FlowPriceOracle.getPricesInRange(
                 startBlock: position.entryBlock,
-                endBlock: position.expiryBlock
+                endBlock: rangeEndBlock
             )
 
             // Check if any price range "touched" the target.
@@ -279,10 +276,6 @@ access(all) contract FlowPredictionGame {
             if touched {
                 payout = position.stake * position.multiplier
             }
-
-            // Release reservation for this position
-            let reserved = position.stake * position.multiplier
-            FlowPredictionGame.totalReserved = FlowPredictionGame.totalReserved - reserved
 
             // Update position
             position.settle(
@@ -351,10 +344,6 @@ access(all) contract FlowPredictionGame {
                 .concat(")")
         )
 
-        // Release reservation for this position
-        let reserved = position.stake * position.multiplier
-        self.totalReserved = self.totalReserved - reserved
-
         // Settle as refund
         position.settle(won: false, payout: position.stake, touchedAtBlock: nil, touchedPrice: nil)
         self.positions[positionId] = position
@@ -376,7 +365,7 @@ access(all) contract FlowPredictionGame {
         return self.positions[positionId]
     }
 
-    access(all) view fun listUserPositions(address: Address): [Position] {
+    access(all) fun listUserPositions(address: Address): [Position] {
         let ids = self.positionsByUser[address] ?? []
         var userPositions: [Position] = []
         for id in ids {
@@ -407,7 +396,6 @@ access(all) contract FlowPredictionGame {
         self.positions = {}
         self.positionsByUser = {}
         self.positionCounter = 0
-        self.totalReserved = 0.0
 
         // Create and store admin resource
         let admin <- create Admin()

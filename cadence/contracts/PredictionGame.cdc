@@ -128,9 +128,6 @@ access(all) contract PredictionGame {
     /// Auto-incrementing position ID counter.
     access(contract) var positionCounter: UInt64
 
-    /// Total payout reserved for all unsettled positions.
-    access(contract) var totalReserved: UFix64
-
     // ── Admin resource ─────────────────────────────────────────────────────
 
     access(all) resource Admin {
@@ -158,13 +155,12 @@ access(all) contract PredictionGame {
 
             let stake = userVault.balance
 
-            // Check house can cover potential payout (accounting for existing reservations)
+            // Check house can cover potential payout
             let potentialPayout = stake * multiplier
             assert(
-                PredictionGame.houseVault.balance >= PredictionGame.totalReserved + potentialPayout,
+                PredictionGame.houseVault.balance >= potentialPayout,
                 message: "House cannot cover potential payout"
             )
-            PredictionGame.totalReserved = PredictionGame.totalReserved + potentialPayout
 
             let currentBlock = getCurrentBlock().height
             let expiryBlock = currentBlock + durationBlocks
@@ -227,13 +223,15 @@ access(all) contract PredictionGame {
             // Get all oracle price ranges during the position's lifetime.
             // Ranges contain the high/low of each push interval for accurate touch detection.
             // Fall back to close prices for entries that predate the range system.
+            let rangeEndBlock = position.expiryBlock + 30
+
             let ranges = PriceRangeOracle.getRangesInRange(
                 startBlock: position.entryBlock,
-                endBlock: position.expiryBlock
+                endBlock: rangeEndBlock
             )
             let prices = PriceOracle.getPricesInRange(
                 startBlock: position.entryBlock,
-                endBlock: position.expiryBlock
+                endBlock: rangeEndBlock
             )
 
             // Check if any price range "touched" the target.
@@ -283,10 +281,6 @@ access(all) contract PredictionGame {
             if touched {
                 payout = position.stake * position.multiplier
             }
-
-            // Release reservation for this position
-            let reserved = position.stake * position.multiplier
-            PredictionGame.totalReserved = PredictionGame.totalReserved - reserved
 
             // Update position
             position.settle(
@@ -355,10 +349,6 @@ access(all) contract PredictionGame {
                 .concat(")")
         )
 
-        // Release reservation for this position
-        let reserved = position.stake * position.multiplier
-        self.totalReserved = self.totalReserved - reserved
-
         // Settle as refund
         position.settle(won: false, payout: position.stake, touchedAtBlock: nil, touchedPrice: nil)
         self.positions[positionId] = position
@@ -380,7 +370,7 @@ access(all) contract PredictionGame {
         return self.positions[positionId]
     }
 
-    access(all) view fun listUserPositions(address: Address): [Position] {
+    access(all) fun listUserPositions(address: Address): [Position] {
         let ids = self.positionsByUser[address] ?? []
         var userPositions: [Position] = []
         for id in ids {
@@ -411,7 +401,6 @@ access(all) contract PredictionGame {
         self.positions = {}
         self.positionsByUser = {}
         self.positionCounter = 0
-        self.totalReserved = 0.0
 
         // Create and store admin resource
         let admin <- create Admin()

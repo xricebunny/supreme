@@ -395,5 +395,104 @@ transaction(recipient: Address, amount: UFix64) {
     }
   });
 
+  // ── GET /api/debug/position/:id — diagnostic: show oracle data for a position
+  app.get("/api/debug/position/:id", async (req, res) => {
+    try {
+      const positionId = req.params.id;
+      const symbol = parseSymbol(req.query.symbol);
+      const lookahead = parseInt(req.query.lookahead as string) || 0;
+
+      const contractName = symbol === "flow" ? "FlowPredictionGame" : "PredictionGame";
+      const oracleName = symbol === "flow" ? "FlowPriceOracle" : "PriceOracle";
+      const rangeOracleName = symbol === "flow" ? "FlowPriceRangeOracle" : "PriceRangeOracle";
+
+      // Get the position
+      const position = await executeScript(`
+        import ${contractName} from 0x${contractName}
+        access(all) fun main(id: UInt64): ${contractName}.Position? {
+          return ${contractName}.getPosition(positionId: id)
+        }
+      `, (arg: typeof fcl.arg, t: any) => [arg(positionId, t.UInt64)]);
+
+      if (!position) return res.status(404).json({ error: "Position not found" });
+
+      const entryBlock = parseInt(position.entryBlock);
+      const expiryBlock = parseInt(position.expiryBlock);
+      const endBlock = expiryBlock + lookahead;
+
+      // Get oracle ranges for exact window and with various lookahead values
+      const [rangesExact, rangesLookahead] = await Promise.all([
+        executeScript(`
+          import ${rangeOracleName} from 0x${rangeOracleName}
+          access(all) fun main(startBlock: UInt64, endBlock: UInt64): [${rangeOracleName}.PriceRange] {
+            return ${rangeOracleName}.getRangesInRange(startBlock: startBlock, endBlock: endBlock)
+          }
+        `, (arg: typeof fcl.arg, t: any) => [
+          arg(entryBlock.toString(), t.UInt64),
+          arg(expiryBlock.toString(), t.UInt64),
+        ]),
+        lookahead > 0 ? executeScript(`
+          import ${rangeOracleName} from 0x${rangeOracleName}
+          access(all) fun main(startBlock: UInt64, endBlock: UInt64): [${rangeOracleName}.PriceRange] {
+            return ${rangeOracleName}.getRangesInRange(startBlock: startBlock, endBlock: endBlock)
+          }
+        `, (arg: typeof fcl.arg, t: any) => [
+          arg(entryBlock.toString(), t.UInt64),
+          arg(endBlock.toString(), t.UInt64),
+        ]) : Promise.resolve([]),
+      ]);
+      const pricesExact: any[] = [];
+      const pricesLookahead: any[] = [];
+
+      // Check if target would be touched with each dataset
+      const targetPrice = parseFloat(position.targetPrice);
+      const aboveTarget = position.aboveTarget;
+
+      const checkTouch = (ranges: any[], prices: any[]) => {
+        for (const r of (ranges || [])) {
+          if (aboveTarget && parseFloat(r.high) >= targetPrice) return { touched: true, via: "range", high: r.high, low: r.low };
+          if (!aboveTarget && parseFloat(r.low) <= targetPrice) return { touched: true, via: "range", high: r.high, low: r.low };
+        }
+        for (const p of (prices || [])) {
+          if (aboveTarget && parseFloat(p.price) >= targetPrice) return { touched: true, via: "price", price: p.price };
+          if (!aboveTarget && parseFloat(p.price) <= targetPrice) return { touched: true, via: "price", price: p.price };
+        }
+        return { touched: false };
+      };
+
+      return res.json({
+        position: {
+          id: position.id,
+          targetPrice: position.targetPrice,
+          aboveTarget: position.aboveTarget,
+          entryBlock: position.entryBlock,
+          expiryBlock: position.expiryBlock,
+          settled: position.settled,
+          won: position.won,
+          payout: position.payout,
+          stake: position.stake,
+          multiplier: position.multiplier,
+        },
+        exact: {
+          blockRange: `${entryBlock}-${expiryBlock}`,
+          ranges: rangesExact || [],
+          prices: pricesExact || [],
+          touchResult: checkTouch(rangesExact || [], pricesExact || []),
+        },
+        ...(lookahead > 0 ? {
+          withLookahead: {
+            blockRange: `${entryBlock}-${endBlock}`,
+            ranges: rangesLookahead || [],
+            prices: pricesLookahead || [],
+            touchResult: checkTouch(rangesLookahead || [], pricesLookahead || []),
+          },
+        } : {}),
+      });
+    } catch (err: any) {
+      console.error("[API] debug position error:", err.message);
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
   return app;
 }
