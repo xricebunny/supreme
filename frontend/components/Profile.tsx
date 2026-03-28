@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { ProfileIcon } from "./Icons";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useProfile } from "@/hooks/useProfile";
@@ -34,6 +35,20 @@ interface ProfileProps {
 export default function Profile({ pyusdBalance, onLoginClick }: ProfileProps) {
   const { isLoggedIn, email, address } = useAuth();
   const { positions, stats, loading, error, refetch } = useProfile(address);
+
+  // Compute running P&L for each position (positions are newest-first)
+  const runningPnl = useMemo(() => {
+    const pnl: number[] = new Array(positions.length);
+    let cumulative = 0;
+    for (let i = positions.length - 1; i >= 0; i--) {
+      const p = positions[i];
+      if (p.settled) {
+        cumulative += p.won ? (p.payout - p.stake) : -p.stake;
+      }
+      pnl[i] = cumulative;
+    }
+    return pnl;
+  }, [positions]);
 
   if (!isLoggedIn) {
     return (
@@ -311,11 +326,12 @@ export default function Profile({ pyusdBalance, onLoginClick }: ProfileProps) {
               <div style={{ width: 70, textAlign: "right" }}>Stake</div>
               <div style={{ width: 60, textAlign: "right" }}>Multi</div>
               <div style={{ flex: 1, textAlign: "right" }}>Result</div>
+              <div style={{ width: 80, textAlign: "right" }}>Run. P&L</div>
               <div style={{ width: 70, textAlign: "right" }}>Time</div>
             </div>
 
             {/* Rows */}
-            {positions.map((pos) => (
+            {positions.map((pos, idx) => (
               <div
                 key={pos.id}
                 className="flex items-center gap-3 px-3 py-3 rounded-lg transition-colors"
@@ -377,6 +393,18 @@ export default function Profile({ pyusdBalance, onLoginClick }: ProfileProps) {
                     : pos.won
                       ? `+${formatUsd(pos.payout - pos.stake)}`
                       : `-${formatUsd(pos.stake)}`}
+                </div>
+                <div
+                  style={{
+                    width: 80,
+                    textAlign: "right",
+                    fontSize: 12,
+                    fontWeight: 500,
+                    fontFamily: "monospace",
+                    color: runningPnl[idx] >= 0 ? "#00ff88" : "#ef4444",
+                  }}
+                >
+                  {formatPnl(runningPnl[idx])}
                 </div>
                 <div
                   style={{

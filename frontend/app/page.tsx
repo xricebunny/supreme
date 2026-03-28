@@ -37,9 +37,10 @@ export default function TradePage() {
 
   // Bet manager (initialized first so queueTx is available for useBalance)
   // Uses refs internally for balance callbacks, so order doesn't cause stale closures.
-  const balanceCallbacksRef = useRef({ deduct: (_n: number) => {}, add: (_n: number) => {} });
+  const balanceCallbacksRef = useRef({ deduct: (_n: number) => {}, add: (_n: number) => {}, refresh: async () => {} });
   const deductOptimisticStable = useCallback((n: number) => balanceCallbacksRef.current.deduct(n), []);
   const addOptimisticStable = useCallback((n: number) => balanceCallbacksRef.current.add(n), []);
+  const refreshBalanceStable = useCallback(async () => balanceCallbacksRef.current.refresh(), []);
 
   const { activeBets, placeBet, queueTx } = useBetManager(
     address,
@@ -47,7 +48,8 @@ export default function TradePage() {
     priceHistory,
     deductOptimisticStable,
     addOptimisticStable,
-    token
+    token,
+    refreshBalanceStable
   );
 
   // PYUSD balance management — uses queueTx to serialize mint with bet txs
@@ -56,11 +58,12 @@ export default function TradePage() {
     loading: balanceLoading,
     deductOptimistic,
     addOptimistic,
+    refreshBalance,
     mintPYUSD,
   } = useBalance(address, magicLinkAuthz, queueTx);
 
   // Keep balance callbacks in sync
-  balanceCallbacksRef.current = { deduct: deductOptimistic, add: addOptimistic };
+  balanceCallbacksRef.current = { deduct: deductOptimistic, add: addOptimistic, refresh: refreshBalance };
 
   const gridAreaRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });

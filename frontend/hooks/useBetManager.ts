@@ -56,7 +56,8 @@ export function useBetManager(
   priceHistory: PricePoint[],
   deductBalance: (amount: number) => void,
   addBalance: (amount: number) => void,
-  token: TokenSymbol = "btc"
+  token: TokenSymbol = "btc",
+  refreshBalance?: () => Promise<void>
 ): UseBetManagerReturn {
   const [activeBets, setActiveBets] = useState<ActiveBet[]>([]);
 
@@ -75,6 +76,11 @@ export function useBetManager(
   useEffect(() => {
     addBalanceRef.current = addBalance;
   }, [addBalance]);
+
+  const refreshBalanceRef = useRef(refreshBalance);
+  useEffect(() => {
+    refreshBalanceRef.current = refreshBalance;
+  }, [refreshBalance]);
 
   const tokenRef = useRef(token);
   useEffect(() => {
@@ -295,13 +301,21 @@ export function useBetManager(
           }
         } catch (err: any) {
           console.error("[Bet] Failed:", err.message);
-          // Revert optimistic state
-          setActiveBets((prev) =>
-            prev.map((b) =>
-              b.id === betId ? { ...b, status: "failed" as BetStatus } : b
-            )
-          );
-          addBalance(params.betSize);
+          // Revert optimistic state — only refund if the bet is still active
+          // (it may have already resolved as won/lost via Binance prices)
+          flushSync(() => {
+            setActiveBets((prev) => {
+              const bet = prev.find((b) => b.id === betId);
+              if (bet && bet.status === "active") {
+                addBalance(params.betSize);
+                return prev.map((b) =>
+                  b.id === betId ? { ...b, status: "failed" as BetStatus } : b
+                );
+              }
+              // Already resolved — don't refund or change status
+              return prev;
+            });
+          });
         }
       };
 
