@@ -2,42 +2,11 @@
 
 import { ProfileIcon } from "./Icons";
 import { useAuth } from "@/contexts/AuthProvider";
-
-interface BetHistoryEntry {
-  id: string;
-  token: string;
-  betSize: number;
-  multiplier: number;
-  payout: number;
-  result: "won" | "lost";
-  timestamp: number;
-}
-
-// Mock data — replace with real API call
-const MOCK_HISTORY: BetHistoryEntry[] = [
-  { id: "1", token: "BTC", betSize: 25, multiplier: 3.2, payout: 80, result: "won", timestamp: Date.now() - 120_000 },
-  { id: "2", token: "BTC", betSize: 50, multiplier: 2.1, payout: 0, result: "lost", timestamp: Date.now() - 300_000 },
-  { id: "3", token: "FLOW", betSize: 10, multiplier: 5.4, payout: 54, result: "won", timestamp: Date.now() - 480_000 },
-  { id: "4", token: "BTC", betSize: 25, multiplier: 1.8, payout: 0, result: "lost", timestamp: Date.now() - 720_000 },
-  { id: "5", token: "FLOW", betSize: 50, multiplier: 2.6, payout: 130, result: "won", timestamp: Date.now() - 900_000 },
-  { id: "6", token: "BTC", betSize: 100, multiplier: 4.1, payout: 0, result: "lost", timestamp: Date.now() - 1_200_000 },
-  { id: "7", token: "BTC", betSize: 25, multiplier: 1.9, payout: 47.5, result: "won", timestamp: Date.now() - 1_500_000 },
-  { id: "8", token: "FLOW", betSize: 10, multiplier: 7.2, payout: 72, result: "won", timestamp: Date.now() - 1_800_000 },
-];
-
-const MOCK_STATS = {
-  totalBets: 142,
-  wins: 83,
-  losses: 59,
-  totalWagered: 8450,
-  totalPayout: 11230,
-  netPnl: 2780,
-  winRate: 58.5,
-  bestMultiplier: 12.4,
-};
+import { useProfile } from "@/hooks/useProfile";
 
 function formatTimeAgo(timestamp: number): string {
   const seconds = Math.floor((Date.now() - timestamp) / 1000);
+  if (seconds < 0) return "pending";
   if (seconds < 60) return `${seconds}s ago`;
   const minutes = Math.floor(seconds / 60);
   if (minutes < 60) return `${minutes}m ago`;
@@ -47,8 +16,14 @@ function formatTimeAgo(timestamp: number): string {
 }
 
 function formatUsd(n: number): string {
-  if (n >= 1000) return `$${(n / 1000).toFixed(1)}k`;
+  if (Math.abs(n) >= 1000) return `$${(n / 1000).toFixed(1)}k`;
   return `$${n.toFixed(0)}`;
+}
+
+function formatPnl(n: number): string {
+  const prefix = n >= 0 ? "+" : "";
+  if (Math.abs(n) >= 1000) return `${prefix}$${(n / 1000).toFixed(1)}k`;
+  return `${prefix}$${n.toFixed(0)}`;
 }
 
 interface ProfileProps {
@@ -58,6 +33,7 @@ interface ProfileProps {
 
 export default function Profile({ pyusdBalance, onLoginClick }: ProfileProps) {
   const { isLoggedIn, email, address } = useAuth();
+  const { positions, stats, loading, error, refetch } = useProfile(address);
 
   if (!isLoggedIn) {
     return (
@@ -174,188 +150,255 @@ export default function Profile({ pyusdBalance, onLoginClick }: ProfileProps) {
         className="flex-shrink-0 px-6 py-4"
         style={{ borderBottom: "1px solid #1e3329" }}
       >
-        <div className="grid grid-cols-4 gap-3">
-          {[
-            { label: "Win Rate", value: `${MOCK_STATS.winRate}%`, color: "#00ff88" },
-            { label: "Total Bets", value: `${MOCK_STATS.totalBets}`, color: "#8ac4a7" },
-            { label: "Net P&L", value: formatUsd(MOCK_STATS.netPnl), color: MOCK_STATS.netPnl >= 0 ? "#00ff88" : "#ef4444" },
-            { label: "Best Multi", value: `${MOCK_STATS.bestMultiplier}x`, color: "#00e5ff" },
-          ].map((stat) => (
-            <div
-              key={stat.label}
-              style={{
-                padding: "12px 14px",
-                background: "#111a16",
-                borderRadius: 10,
-                border: "1px solid #1e3329",
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 11,
-                  color: "#4a7a66",
-                  fontWeight: 600,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.5px",
-                  marginBottom: 4,
-                }}
-              >
-                {stat.label}
-              </div>
-              <div
-                style={{
-                  fontSize: 18,
-                  fontWeight: 700,
-                  color: stat.color,
-                }}
-              >
-                {stat.value}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* W/L bar */}
-        <div className="mt-3 flex items-center gap-2">
-          <span style={{ fontSize: 11, color: "#4a7a66", width: 24 }}>
-            W/L
-          </span>
-          <div
-            className="flex-1 flex rounded-full overflow-hidden"
-            style={{ height: 6, background: "#1e3329" }}
-          >
-            <div
-              style={{
-                width: `${(MOCK_STATS.wins / MOCK_STATS.totalBets) * 100}%`,
-                background: "#22c55e",
-                borderRadius: "3px 0 0 3px",
-              }}
-            />
-            <div
-              style={{
-                width: `${(MOCK_STATS.losses / MOCK_STATS.totalBets) * 100}%`,
-                background: "#ef4444",
-                borderRadius: "0 3px 3px 0",
-              }}
-            />
+        {loading && positions.length === 0 ? (
+          <div style={{ fontSize: 13, color: "#4a7a66", textAlign: "center", padding: "12px 0" }}>
+            Loading stats...
           </div>
-          <span style={{ fontSize: 11, color: "#4a7a66", minWidth: 50, textAlign: "right" }}>
-            <span style={{ color: "#22c55e" }}>{MOCK_STATS.wins}</span>
-            <span style={{ color: "#3d5c4d" }}>/</span>
-            <span style={{ color: "#ef4444" }}>{MOCK_STATS.losses}</span>
-          </span>
-        </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-4 gap-3">
+              {[
+                { label: "Win Rate", value: stats.totalBets > 0 ? `${stats.winRate.toFixed(1)}%` : "—", color: "#00ff88" },
+                { label: "Total Bets", value: `${stats.totalBets}`, color: "#8ac4a7" },
+                { label: "Net P&L", value: stats.totalBets > 0 ? formatPnl(stats.netPnl) : "—", color: stats.netPnl >= 0 ? "#00ff88" : "#ef4444" },
+                { label: "Best Multi", value: stats.bestMultiplier > 0 ? `${stats.bestMultiplier.toFixed(1)}x` : "—", color: "#00e5ff" },
+              ].map((stat) => (
+                <div
+                  key={stat.label}
+                  style={{
+                    padding: "12px 14px",
+                    background: "#111a16",
+                    borderRadius: 10,
+                    border: "1px solid #1e3329",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "#4a7a66",
+                      fontWeight: 600,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px",
+                      marginBottom: 4,
+                    }}
+                  >
+                    {stat.label}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 18,
+                      fontWeight: 700,
+                      color: stat.color,
+                    }}
+                  >
+                    {stat.value}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* W/L bar */}
+            {stats.totalBets > 0 && (
+              <div className="mt-3 flex items-center gap-2">
+                <span style={{ fontSize: 11, color: "#4a7a66", width: 24 }}>
+                  W/L
+                </span>
+                <div
+                  className="flex-1 flex rounded-full overflow-hidden"
+                  style={{ height: 6, background: "#1e3329" }}
+                >
+                  {stats.wins > 0 && (
+                    <div
+                      style={{
+                        width: `${(stats.wins / (stats.wins + stats.losses)) * 100}%`,
+                        background: "#22c55e",
+                        borderRadius: "3px 0 0 3px",
+                      }}
+                    />
+                  )}
+                  {stats.losses > 0 && (
+                    <div
+                      style={{
+                        width: `${(stats.losses / (stats.wins + stats.losses)) * 100}%`,
+                        background: "#ef4444",
+                        borderRadius: "0 3px 3px 0",
+                      }}
+                    />
+                  )}
+                </div>
+                <span style={{ fontSize: 11, color: "#4a7a66", minWidth: 50, textAlign: "right" }}>
+                  <span style={{ color: "#22c55e" }}>{stats.wins}</span>
+                  <span style={{ color: "#3d5c4d" }}>/</span>
+                  <span style={{ color: "#ef4444" }}>{stats.losses}</span>
+                </span>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {/* Bet history */}
       <div className="flex-1 overflow-y-auto px-6 py-4 min-h-0">
-        <div
-          style={{
-            fontSize: 13,
-            fontWeight: 600,
-            color: "#ffffff",
-            marginBottom: 12,
-          }}
-        >
-          Recent Bets
-        </div>
-
-        {/* Table header */}
-        <div
-          className="flex items-center gap-3 px-3 pb-3 mb-2"
-          style={{
-            borderBottom: "1px solid #1e3329",
-            fontSize: 11,
-            fontWeight: 600,
-            color: "#4a7a66",
-            textTransform: "uppercase",
-            letterSpacing: "0.5px",
-          }}
-        >
-          <div style={{ width: 50 }}>Token</div>
-          <div style={{ width: 70, textAlign: "right" }}>Stake</div>
-          <div style={{ width: 60, textAlign: "right" }}>Multi</div>
-          <div style={{ flex: 1, textAlign: "right" }}>Result</div>
-          <div style={{ width: 70, textAlign: "right" }}>Time</div>
-        </div>
-
-        {/* Rows */}
-        {MOCK_HISTORY.map((bet) => (
+        <div className="flex items-center justify-between mb-3">
           <div
-            key={bet.id}
-            className="flex items-center gap-3 px-3 py-3 rounded-lg transition-colors"
             style={{
-              borderBottom: "1px solid rgba(30, 51, 41, 0.5)",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "rgba(0, 255, 136, 0.03)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "transparent";
+              fontSize: 13,
+              fontWeight: 600,
+              color: "#ffffff",
             }}
           >
-            <div
-              style={{
-                width: 50,
-                fontSize: 12,
-                fontWeight: 600,
-                color: "#8ac4a7",
-              }}
-            >
-              {bet.token}
+            Bet History
+          </div>
+          <button
+            onClick={refetch}
+            disabled={loading}
+            style={{
+              padding: "4px 10px",
+              borderRadius: 6,
+              border: "1px solid #1e3329",
+              background: "transparent",
+              color: loading ? "#3d5c4d" : "#4a7a66",
+              fontSize: 11,
+              cursor: loading ? "default" : "pointer",
+            }}
+          >
+            {loading ? "Loading..." : "Refresh"}
+          </button>
+        </div>
+
+        {error && (
+          <div
+            style={{
+              padding: "10px 14px",
+              borderRadius: 8,
+              background: "rgba(239, 68, 68, 0.1)",
+              border: "1px solid rgba(239, 68, 68, 0.2)",
+              color: "#ef4444",
+              fontSize: 12,
+              marginBottom: 12,
+            }}
+          >
+            {error}
+          </div>
+        )}
+
+        {positions.length === 0 && !loading ? (
+          <div
+            className="flex flex-col items-center justify-center py-12 gap-2"
+          >
+            <div style={{ fontSize: 14, color: "#4a7a66" }}>
+              No bets yet
             </div>
-            <div
-              style={{
-                width: 70,
-                textAlign: "right",
-                fontSize: 13,
-                color: "#8ac4a7",
-              }}
-            >
-              ${bet.betSize}
-            </div>
-            <div
-              style={{
-                width: 60,
-                textAlign: "right",
-                fontSize: 13,
-                color: "#4a7a66",
-              }}
-            >
-              {bet.multiplier}x
-            </div>
-            <div
-              style={{
-                flex: 1,
-                textAlign: "right",
-                fontSize: 13,
-                fontWeight: 600,
-                color: bet.result === "won" ? "#22c55e" : "#ef4444",
-              }}
-            >
-              {bet.result === "won"
-                ? `+$${bet.payout.toFixed(0)}`
-                : `-$${bet.betSize}`}
-            </div>
-            <div
-              style={{
-                width: 70,
-                textAlign: "right",
-                fontSize: 11,
-                color: "#3d5c4d",
-              }}
-            >
-              {formatTimeAgo(bet.timestamp)}
+            <div style={{ fontSize: 12, color: "#3d5c4d" }}>
+              Place your first bet on the Trade tab
             </div>
           </div>
-        ))}
+        ) : (
+          <>
+            {/* Table header */}
+            <div
+              className="flex items-center gap-3 px-3 pb-3 mb-2"
+              style={{
+                borderBottom: "1px solid #1e3329",
+                fontSize: 11,
+                fontWeight: 600,
+                color: "#4a7a66",
+                textTransform: "uppercase",
+                letterSpacing: "0.5px",
+              }}
+            >
+              <div style={{ width: 50 }}>Token</div>
+              <div style={{ width: 70, textAlign: "right" }}>Stake</div>
+              <div style={{ width: 60, textAlign: "right" }}>Multi</div>
+              <div style={{ flex: 1, textAlign: "right" }}>Result</div>
+              <div style={{ width: 70, textAlign: "right" }}>Time</div>
+            </div>
 
-        <div
-          className="text-center mt-6 pb-4"
-          style={{ fontSize: 11, color: "#3d5c4d" }}
-        >
-          Showing recent bets from this session
-        </div>
+            {/* Rows */}
+            {positions.map((pos) => (
+              <div
+                key={pos.id}
+                className="flex items-center gap-3 px-3 py-3 rounded-lg transition-colors"
+                style={{
+                  borderBottom: "1px solid rgba(30, 51, 41, 0.5)",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(0, 255, 136, 0.03)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "transparent";
+                }}
+              >
+                <div
+                  style={{
+                    width: 50,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "#8ac4a7",
+                  }}
+                >
+                  {pos.token}
+                </div>
+                <div
+                  style={{
+                    width: 70,
+                    textAlign: "right",
+                    fontSize: 13,
+                    color: "#8ac4a7",
+                  }}
+                >
+                  ${pos.stake.toFixed(0)}
+                </div>
+                <div
+                  style={{
+                    width: 60,
+                    textAlign: "right",
+                    fontSize: 13,
+                    color: "#4a7a66",
+                  }}
+                >
+                  {pos.multiplier.toFixed(1)}x
+                </div>
+                <div
+                  style={{
+                    flex: 1,
+                    textAlign: "right",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: !pos.settled
+                      ? "#f59e0b"
+                      : pos.won
+                        ? "#22c55e"
+                        : "#ef4444",
+                  }}
+                >
+                  {!pos.settled
+                    ? "Pending"
+                    : pos.won
+                      ? `+${formatUsd(pos.payout - pos.stake)}`
+                      : `-${formatUsd(pos.stake)}`}
+                </div>
+                <div
+                  style={{
+                    width: 70,
+                    textAlign: "right",
+                    fontSize: 11,
+                    color: "#3d5c4d",
+                  }}
+                >
+                  {formatTimeAgo(pos.expiryTimestamp)}
+                </div>
+              </div>
+            ))}
+
+            <div
+              className="text-center mt-6 pb-4"
+              style={{ fontSize: 11, color: "#3d5c4d" }}
+            >
+              Showing all {positions.length} on-chain positions
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
