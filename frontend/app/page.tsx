@@ -129,6 +129,8 @@ export default function TradePage() {
 
       {activeTab === "leaderboard" ? (
         <Leaderboard />
+      ) : activeTab === "profile" ? (
+        <Profile pyusdBalance={optimisticBalance} onLoginClick={openLogin} />
       ) : (
         <div className="flex-1 flex flex-col min-w-0 min-h-0">
           {/* Top bar */}
