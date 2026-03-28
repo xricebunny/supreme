@@ -63,3 +63,18 @@ export async function getPositions(address: string, symbol: string = "btc"): Pro
   const data = await res.json();
   return data.positions || [];
 }
+
+export interface LeaderboardEntry {
+  address: string;
+  totalWagered: number;
+  totalPayout: number;
+  wins: number;
+  losses: number;
+  netPnl: number;
+}
+
+export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
+  const res = await fetch(`${API_BASE}/api/leaderboard`);
+  const data = await res.json();
+  return data.leaderboard || [];
+}

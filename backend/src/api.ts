@@ -48,6 +48,45 @@ access(all) fun main(address: Address): [FlowPredictionGame.Position] {
 `,
 };
 
+const ALL_SETTLED_CDC: Record<AssetSymbol, string> = {
+  btc: `
+import PredictionGame from 0xPredictionGame
+
+access(all) fun main(): [PredictionGame.Position] {
+    let total = PredictionGame.getPositionCount()
+    var settled: [PredictionGame.Position] = []
+    var id: UInt64 = 1
+    while id <= total {
+        if let pos = PredictionGame.getPosition(positionId: id) {
+            if pos.settled {
+                settled.append(pos)
+            }
+        }
+        id = id + 1
+    }
+    return settled
+}
+`,
+  flow: `
+import FlowPredictionGame from 0xFlowPredictionGame
+
+access(all) fun main(): [FlowPredictionGame.Position] {
+    let total = FlowPredictionGame.getPositionCount()
+    var settled: [FlowPredictionGame.Position] = []
+    var id: UInt64 = 1
+    while id <= total {
+        if let pos = FlowPredictionGame.getPosition(positionId: id) {
+            if pos.settled {
+                settled.append(pos)
+            }
+        }
+        id = id + 1
+    }
+    return settled
+}
+`,
+};
+
 const HOUSE_BALANCE_CDC: Record<AssetSymbol, string> = {
   btc: `
 import PredictionGame from 0xPredictionGame
@@ -302,6 +341,58 @@ transaction(recipient: Address, amount: UFix64) {
       adminAddress: ADMIN_ADDRESS,
       keys: getTotalKeys(),
     });
+  });
+
+  // ── GET /api/leaderboard ──────────────────────────────────────────────
+  app.get("/api/leaderboard", async (_req, res) => {
+    try {
+      // Fetch all settled positions from both contracts in parallel
+      const [btcPositions, flowPositions] = await Promise.all([
+        executeScript(ALL_SETTLED_CDC.btc).catch(() => []),
+        executeScript(ALL_SETTLED_CDC.flow).catch(() => []),
+      ]);
+
+      const allPositions = [...(btcPositions || []), ...(flowPositions || [])];
+
+      // Aggregate by owner address
+      const userMap: Record<string, {
+        address: string;
+        totalWagered: number;
+        totalPayout: number;
+        wins: number;
+        losses: number;
+      }> = {};
+
+      for (const pos of allPositions) {
+        const owner = pos.owner as string;
+        if (!userMap[owner]) {
+          userMap[owner] = { address: owner, totalWagered: 0, totalPayout: 0, wins: 0, losses: 0 };
+        }
+        const entry = userMap[owner];
+        const stake = parseFloat(pos.stake) || 0;
+        const payout = parseFloat(pos.payout) || 0;
+        entry.totalWagered += stake;
+        if (pos.won === true) {
+          entry.wins += 1;
+          entry.totalPayout += payout;
+        } else {
+          entry.losses += 1;
+        }
+      }
+
+      // Sort by net P&L descending
+      const leaderboard = Object.values(userMap)
+        .map((u) => ({
+          ...u,
+          netPnl: u.totalPayout - u.totalWagered,
+        }))
+        .sort((a, b) => b.netPnl - a.netPnl);
+
+      return res.json({ leaderboard });
+    } catch (err: any) {
+      console.error("[API] leaderboard error:", err.message);
+      return res.status(500).json({ error: "Failed to build leaderboard" });
+    }
   });
 
   return app;
