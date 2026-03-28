@@ -4,17 +4,21 @@ import { useState } from "react";
 import { TradeIcon, TrophyIcon, ProfileIcon, SettingsIcon, MusicIcon } from "./Icons";
 import { useAuth } from "@/contexts/AuthProvider";
 
-const navItems = [
-  { icon: TradeIcon, label: "Trade", active: true },
-  { icon: TrophyIcon, label: "Leaderboard", active: false, tooltip: "Coming Soon" },
-  { icon: ProfileIcon, label: "Profile", active: false, tooltip: "Coming Soon" },
+export type Tab = "trade" | "leaderboard" | "profile";
+
+const navItems: { icon: typeof TradeIcon; label: string; tab: Tab; tooltip?: string }[] = [
+  { icon: TradeIcon, label: "Trade", tab: "trade" },
+  { icon: TrophyIcon, label: "Leaderboard", tab: "leaderboard" },
+  { icon: ProfileIcon, label: "Profile", tab: "profile" },
 ];
 
 interface SidebarProps {
   onLoginClick: () => void;
+  activeTab: Tab;
+  onTabChange: (tab: Tab) => void;
 }
 
-export default function Sidebar({ onLoginClick }: SidebarProps) {
+export default function Sidebar({ onLoginClick, activeTab, onTabChange }: SidebarProps) {
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const { isLoggedIn, isLoading, email, address, logout } = useAuth();
 
@@ -46,7 +50,10 @@ export default function Sidebar({ onLoginClick }: SidebarProps) {
 
       {/* Nav items */}
       <nav className="flex flex-col gap-1 px-3">
-        {navItems.map((item) => (
+        {navItems.map((item) => {
+          const isActive = item.tab === activeTab;
+          const isDisabled = !!item.tooltip;
+          return (
           <div
             key={item.label}
             className="relative"
@@ -54,17 +61,18 @@ export default function Sidebar({ onLoginClick }: SidebarProps) {
             onMouseLeave={() => setHoveredItem(null)}
           >
             <button
+              onClick={() => !isDisabled && onTabChange(item.tab)}
               className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-left transition-colors"
               style={{
-                background: item.active ? "#111a16" : "transparent",
-                color: item.active ? "#ffffff" : "#4a7a66",
+                background: isActive ? "#111a16" : "transparent",
+                color: isActive ? "#ffffff" : "#4a7a66",
                 border: "none",
-                cursor: item.active ? "pointer" : "default",
+                cursor: isDisabled ? "default" : "pointer",
                 fontSize: 14,
-                fontWeight: item.active ? 600 : 400,
+                fontWeight: isActive ? 600 : 400,
               }}
             >
-              <item.icon size={18} color={item.active ? "#00ff88" : "#4a7a66"} />
+              <item.icon size={18} color={isActive ? "#00ff88" : "#4a7a66"} />
               <span>{item.label}</span>
             </button>
             {item.tooltip && hoveredItem === item.label && (
@@ -89,7 +97,8 @@ export default function Sidebar({ onLoginClick }: SidebarProps) {
               </div>
             )}
           </div>
-        ))}
+          );
+        })}
       </nav>
 
       {/* Spacer */}

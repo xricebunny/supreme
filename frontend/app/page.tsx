@@ -10,10 +10,13 @@ import { useBetManager } from "@/hooks/useBetManager";
 import { useBackendHealth } from "@/hooks/useBackendHealth";
 import { useTokenSelector } from "@/hooks/useTokenSelector";
 import Sidebar from "@/components/Sidebar";
+import type { Tab } from "@/components/Sidebar";
 import PriceDisplay from "@/components/PriceDisplay";
 import GameGrid from "@/components/GameGrid";
 import BottomBar from "@/components/BottomBar";
 import LoginModal from "@/components/LoginModal";
+import Leaderboard from "@/components/Leaderboard";
+import Profile from "@/components/Profile";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useMagic } from "@/contexts/MagicProvider";
 
@@ -85,6 +88,7 @@ export default function TradePage() {
 
   const { timeSlot, baseTimeMs, slotProgress, gridRef, xAxisRef } = useAnimationTime(cellWidth);
 
+  const [activeTab, setActiveTab] = useState<Tab>("trade");
   const [showLoginModal, setShowLoginModal] = useState(false);
   const openLogin = useCallback(() => setShowLoginModal(true), []);
   const closeLogin = useCallback(() => setShowLoginModal(false), []);
@@ -121,177 +125,181 @@ export default function TradePage() {
       className="h-screen w-screen overflow-hidden flex"
       style={{ background: "#0a0f0d" }}
     >
-      <Sidebar onLoginClick={openLogin} />
+      <Sidebar onLoginClick={openLogin} activeTab={activeTab} onTabChange={setActiveTab} />
 
-      <div className="flex-1 flex flex-col min-w-0 min-h-0">
-        {/* Top bar */}
-        <div
-          className="flex-shrink-0 flex items-center justify-between px-4 py-3 relative z-50"
-          style={{
-            background: "rgba(10, 15, 13, 0.9)",
-            backdropFilter: "blur(8px)",
-            borderBottom: "1px solid #1e3329",
-          }}
-        >
-          <div className="flex items-center gap-3">
-            <PriceDisplay price={currentPrice} symbol={token} onSymbolChange={setToken} />
-            <div
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full"
-              style={{
-                background: "#111a16",
-                border: `1px solid ${
+      {activeTab === "leaderboard" ? (
+        <Leaderboard />
+      ) : (
+        <div className="flex-1 flex flex-col min-w-0 min-h-0">
+          {/* Top bar */}
+          <div
+            className="flex-shrink-0 flex items-center justify-between px-4 py-3 relative z-50"
+            style={{
+              background: "rgba(10, 15, 13, 0.9)",
+              backdropFilter: "blur(8px)",
+              borderBottom: "1px solid #1e3329",
+            }}
+          >
+            <div className="flex items-center gap-3">
+              <PriceDisplay price={currentPrice} symbol={token} onSymbolChange={setToken} />
+              <div
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full"
+                style={{
+                  background: "#111a16",
+                  border: `1px solid ${
+                    !backendHealth.connected
+                      ? "#5c2020"
+                      : backendHealth.oracleStale
+                        ? "#5c4a20"
+                        : "#1e3329"
+                  }`,
+                }}
+                title={
                   !backendHealth.connected
-                    ? "#5c2020"
+                    ? "Backend offline"
                     : backendHealth.oracleStale
-                      ? "#5c4a20"
-                      : "#1e3329"
-                }`,
-              }}
-              title={
-                !backendHealth.connected
-                  ? "Backend offline"
-                  : backendHealth.oracleStale
-                    ? `Oracle stale (last push ${Math.round(backendHealth.lastPushMs / 1000)}s ago)`
-                    : `Oracle live — $${backendHealth.oraclePrice.toFixed(0)}`
-              }
-            >
-              <div
-                style={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: "50%",
-                  background: !backendHealth.connected
-                    ? "#ef4444"
-                    : backendHealth.oracleStale
-                      ? "#f59e0b"
-                      : "#00ff88",
-                  boxShadow: !backendHealth.connected
-                    ? "0 0 4px #ef4444"
-                    : backendHealth.oracleStale
-                      ? "0 0 4px #f59e0b"
-                      : "0 0 4px #00ff88",
-                  flexShrink: 0,
-                }}
-              />
-              <span
-                className="text-[10px]"
-                style={{
-                  color: !backendHealth.connected
-                    ? "#ef4444"
-                    : backendHealth.oracleStale
-                      ? "#f59e0b"
-                      : "#4a7a66",
-                }}
-              >
-                {!backendHealth.connected
-                  ? "Offline"
-                  : backendHealth.oracleStale
-                    ? "Oracle Stale"
-                    : "Live"}
-              </span>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            {address && (
-              <div
-                className="flex items-center gap-2 px-3 py-1.5 rounded-full"
-                style={{
-                  background: "#111a16",
-                  border: "1px solid #1e3329",
-                }}
-              >
-                <span
-                  className="text-xs font-bold tabular-nums"
-                  style={{ color: "#00ff88" }}
-                >
-                  ${optimisticBalance.toFixed(2)}
-                </span>
-                <span
-                  className="text-[10px]"
-                  style={{ color: "#4a7a66" }}
-                >
-                  PYUSD
-                </span>
-              </div>
-            )}
-            {address && (
-              <div
-                className="flex items-center gap-2 px-3 py-1.5 rounded-full"
-                style={{
-                  background: "#111a16",
-                  border: "1px solid #1e3329",
-                }}
+                      ? `Oracle stale (last push ${Math.round(backendHealth.lastPushMs / 1000)}s ago)`
+                      : `Oracle live — $${backendHealth.oraclePrice.toFixed(0)}`
+                }
               >
                 <div
                   style={{
                     width: 6,
                     height: 6,
                     borderRadius: "50%",
-                    background: "#00ff88",
+                    background: !backendHealth.connected
+                      ? "#ef4444"
+                      : backendHealth.oracleStale
+                        ? "#f59e0b"
+                        : "#00ff88",
+                    boxShadow: !backendHealth.connected
+                      ? "0 0 4px #ef4444"
+                      : backendHealth.oracleStale
+                        ? "0 0 4px #f59e0b"
+                        : "0 0 4px #00ff88",
                     flexShrink: 0,
                   }}
                 />
                 <span
-                  className="text-xs font-mono"
-                  style={{ color: "#8ac4a7" }}
+                  className="text-[10px]"
+                  style={{
+                    color: !backendHealth.connected
+                      ? "#ef4444"
+                      : backendHealth.oracleStale
+                        ? "#f59e0b"
+                        : "#4a7a66",
+                  }}
                 >
-                  {address.slice(0, 6)}...{address.slice(-4)}
+                  {!backendHealth.connected
+                    ? "Offline"
+                    : backendHealth.oracleStale
+                      ? "Oracle Stale"
+                      : "Live"}
                 </span>
               </div>
-            )}
-          </div>
-        </div>
-
-        {/* Grid area — fills remaining space */}
-        <div
-          ref={gridAreaRef}
-          className="flex-1 relative overflow-hidden min-h-0"
-        >
-          {currentPrice === 0 ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center">
+            </div>
+            <div className="flex items-center gap-3">
+              {address && (
                 <div
-                  className="text-sm font-medium mb-2"
-                  style={{ color: timedOut ? "#ef4444" : "#00ff88" }}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-full"
+                  style={{
+                    background: "#111a16",
+                    border: "1px solid #1e3329",
+                  }}
                 >
-                  {timedOut
-                    ? "Can't reach Binance — check your connection"
-                    : connected
-                      ? "Waiting for first trade..."
-                      : "Connecting to Binance..."}
+                  <span
+                    className="text-xs font-bold tabular-nums"
+                    style={{ color: "#00ff88" }}
+                  >
+                    ${optimisticBalance.toFixed(2)}
+                  </span>
+                  <span
+                    className="text-[10px]"
+                    style={{ color: "#4a7a66" }}
+                  >
+                    PYUSD
+                  </span>
                 </div>
-                <div className="text-xs" style={{ color: "#4a7a66" }}>
-                  {tokenPair}
+              )}
+              {address && (
+                <div
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-full"
+                  style={{
+                    background: "#111a16",
+                    border: "1px solid #1e3329",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: "50%",
+                      background: "#00ff88",
+                      flexShrink: 0,
+                    }}
+                  />
+                  <span
+                    className="text-xs font-mono"
+                    style={{ color: "#8ac4a7" }}
+                  >
+                    {address.slice(0, 6)}...{address.slice(-4)}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Grid area — fills remaining space */}
+          <div
+            ref={gridAreaRef}
+            className="flex-1 relative overflow-hidden min-h-0"
+          >
+            {currentPrice === 0 ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <div
+                    className="text-sm font-medium mb-2"
+                    style={{ color: timedOut ? "#ef4444" : "#00ff88" }}
+                  >
+                    {timedOut
+                      ? "Can't reach Binance — check your connection"
+                      : connected
+                        ? "Waiting for first trade..."
+                        : "Connecting to Binance..."}
+                  </div>
+                  <div className="text-xs" style={{ color: "#4a7a66" }}>
+                    {tokenPair}
+                  </div>
                 </div>
               </div>
-            </div>
-          ) : (
-            <GameGrid
-              currentPrice={currentPrice}
-              priceHistory={priceHistory}
-              betSize={betSize}
-              timeSlot={timeSlot}
-              baseTimeMs={baseTimeMs}
-              slotProgress={slotProgress}
-              gridRef={gridRef}
-              xAxisRef={xAxisRef}
-              cellWidth={cellWidth}
-              cellHeight={cellHeight}
-              activeBets={activeBets}
-              onCellClick={handleCellClick}
-            />
-          )}
-        </div>
+            ) : (
+              <GameGrid
+                currentPrice={currentPrice}
+                priceHistory={priceHistory}
+                betSize={betSize}
+                timeSlot={timeSlot}
+                baseTimeMs={baseTimeMs}
+                slotProgress={slotProgress}
+                gridRef={gridRef}
+                xAxisRef={xAxisRef}
+                cellWidth={cellWidth}
+                cellHeight={cellHeight}
+                activeBets={activeBets}
+                onCellClick={handleCellClick}
+              />
+            )}
+          </div>
 
-        <BottomBar
-          betSize={betSize}
-          onBetSizeChange={setBetSize}
-          onLoginClick={openLogin}
-          pyusdBalance={optimisticBalance}
-          onFundDemo={mintPYUSD}
-          fundingLoading={balanceLoading}
-        />
-      </div>
+          <BottomBar
+            betSize={betSize}
+            onBetSizeChange={setBetSize}
+            onLoginClick={openLogin}
+            pyusdBalance={optimisticBalance}
+            onFundDemo={mintPYUSD}
+            fundingLoading={balanceLoading}
+          />
+        </div>
+      )}
 
       <LoginModal isOpen={showLoginModal} onClose={closeLogin} />
     </div>
