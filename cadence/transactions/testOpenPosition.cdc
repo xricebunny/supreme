@@ -43,6 +43,5 @@ transaction(
             durationBlocks: durationBlocks,
             expiryTimestamp: expiryTimestamp
         )
-        log("Opened position: ".concat(positionId.toString()))
     }
 }

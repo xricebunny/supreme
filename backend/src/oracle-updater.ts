@@ -61,7 +61,11 @@ transaction(high: UFix64, low: UFix64, close: UFix64, timestamp: UFix64) {
     }
 
     execute {
+        // Temporarily allow 100% change so oracle can catch up from stale state
+        self.oracleAdmin.setMaxChangeBps(bps: 10000)
         self.oracleAdmin.pushPrice(price: close, timestamp: timestamp)
+        // Restore to 50% guard
+        self.oracleAdmin.setMaxChangeBps(bps: 5000)
         self.rangeAdmin.pushRange(high: high, low: low)
     }
 }

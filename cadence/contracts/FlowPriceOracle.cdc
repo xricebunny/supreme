@@ -63,9 +63,13 @@ access(all) contract FlowPriceOracle {
             }
 
             let entry = PriceData(price: price, timestamp: timestamp)
+            // Only increment count if this block height doesn't already have an entry
+            let isNewEntry = FlowPriceOracle.priceHistory[blockHeight] == nil
             FlowPriceOracle.priceHistory[blockHeight] = entry
             FlowPriceOracle.latestBlock = blockHeight
-            FlowPriceOracle.entryCount = FlowPriceOracle.entryCount + 1
+            if isNewEntry {
+                FlowPriceOracle.entryCount = FlowPriceOracle.entryCount + 1
+            }
 
             emit PricePushed(blockHeight: blockHeight, price: price, timestamp: timestamp)
         }

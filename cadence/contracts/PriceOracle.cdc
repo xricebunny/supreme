@@ -63,9 +63,13 @@ access(all) contract PriceOracle {
             }
 
             let entry = PriceData(price: price, timestamp: timestamp)
+            // Only increment count if this block height doesn't already have an entry
+            let isNewEntry = PriceOracle.priceHistory[blockHeight] == nil
             PriceOracle.priceHistory[blockHeight] = entry
             PriceOracle.latestBlock = blockHeight
-            PriceOracle.entryCount = PriceOracle.entryCount + 1
+            if isNewEntry {
+                PriceOracle.entryCount = PriceOracle.entryCount + 1
+            }
 
             emit PricePushed(blockHeight: blockHeight, price: price, timestamp: timestamp)
         }
