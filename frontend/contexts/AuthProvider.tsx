@@ -11,6 +11,7 @@ import {
 import * as fcl from "@onflow/fcl";
 import "@/lib/flow";
 import { useMagic } from "./MagicProvider";
+import { fundAccount } from "@/lib/api";
 
 interface AuthContextValue {
   isLoggedIn: boolean;
@@ -82,6 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setAddress(flowAddress);
           setIsLoggedIn(true);
           if (flowAddress) {
+            fundAccount(flowAddress).catch(() => {});
             await refreshBalance(flowAddress);
           }
         }
@@ -116,6 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAddress(flowAddress);
       setIsLoggedIn(true);
       if (flowAddress) {
+        fundAccount(flowAddress).catch(() => {});
         await refreshBalance(flowAddress);
       }
     } catch (err) {
