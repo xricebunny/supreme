@@ -16,12 +16,84 @@ interface SidebarProps {
   onLoginClick: () => void;
   activeTab: Tab;
   onTabChange: (tab: Tab) => void;
+  isMobile?: boolean;
 }
 
-export default function Sidebar({ onLoginClick, activeTab, onTabChange }: SidebarProps) {
+export default function Sidebar({ onLoginClick, activeTab, onTabChange, isMobile }: SidebarProps) {
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const { isLoggedIn, isLoading, email, address, logout } = useAuth();
 
+  /* ── Mobile: bottom tab bar ── */
+  if (isMobile) {
+    return (
+      <nav
+        className="flex-shrink-0 flex items-center justify-around"
+        style={{
+          background: "#0a0f0d",
+          borderTop: "1px solid #1e3329",
+          paddingBottom: "env(safe-area-inset-bottom, 0px)",
+        }}
+      >
+        {navItems.map((item) => {
+          const isActive = item.tab === activeTab;
+          return (
+            <button
+              key={item.label}
+              onClick={() => onTabChange(item.tab)}
+              className="flex flex-col items-center gap-1 py-2 px-4"
+              style={{
+                background: "none",
+                border: "none",
+                color: isActive ? "#00ff88" : "#4a7a66",
+                cursor: "pointer",
+                fontSize: 10,
+                fontWeight: isActive ? 600 : 400,
+                minWidth: 64,
+              }}
+            >
+              <item.icon size={20} color={isActive ? "#00ff88" : "#4a7a66"} />
+              <span>{item.label}</span>
+            </button>
+          );
+        })}
+        {!isLoggedIn && !isLoading && (
+          <button
+            onClick={onLoginClick}
+            className="flex flex-col items-center gap-1 py-2 px-4"
+            style={{
+              background: "none",
+              border: "none",
+              color: "#00ff88",
+              cursor: "pointer",
+              fontSize: 10,
+              fontWeight: 600,
+              minWidth: 64,
+            }}
+          >
+            <div
+              style={{
+                width: 20,
+                height: 20,
+                borderRadius: "50%",
+                background: "#00ff88",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 14,
+                fontWeight: 700,
+                color: "#0a0f0d",
+              }}
+            >
+              +
+            </div>
+            <span>Login</span>
+          </button>
+        )}
+      </nav>
+    );
+  }
+
+  /* ── Desktop: side nav ── */
   return (
     <aside
       className="flex-shrink-0 flex flex-col"

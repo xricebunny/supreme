@@ -16,6 +16,7 @@ interface BottomBarProps {
   pyusdBalance?: number;
   onFundDemo?: (amount: number) => Promise<void>;
   fundingLoading?: boolean;
+  isMobile?: boolean;
 }
 
 export default function BottomBar({
@@ -25,6 +26,7 @@ export default function BottomBar({
   pyusdBalance,
   onFundDemo,
   fundingLoading,
+  isMobile,
 }: BottomBarProps) {
   const { isLoggedIn, balance } = useAuth();
   const currentIndex = BET_SIZES.indexOf(betSize);
@@ -61,53 +63,55 @@ export default function BottomBar({
 
   return (
     <div
-      className="flex-shrink-0 flex items-center justify-between px-6 py-3"
+      className={`flex-shrink-0 flex items-center justify-between ${isMobile ? "px-3 py-2 gap-2" : "px-6 py-3"}`}
       style={{
         background: "#0a0f0d",
         borderTop: "1px solid #1e3329",
       }}
     >
       {/* Balance + Fund Demo */}
-      <div className="flex items-center gap-3">
+      <div className={`flex items-center ${isMobile ? "gap-2" : "gap-3"} min-w-0`}>
         {isLoggedIn ? (
           <>
             <div
-              className="flex items-center gap-2 px-4 py-2 rounded-full"
+              className={`flex items-center gap-2 ${isMobile ? "px-2.5 py-1.5" : "px-4 py-2"} rounded-full`}
               style={{ background: "#111a16" }}
             >
-              <CoinsIcon size={16} color="#00ff88" />
+              <CoinsIcon size={isMobile ? 14 : 16} color="#00ff88" />
               <span
-                className="text-sm font-semibold tabular-nums"
+                className={`${isMobile ? "text-xs" : "text-sm"} font-semibold tabular-nums`}
                 style={{ color: "#ffffff" }}
               >
-                {pyusdBalance !== undefined ? `$${pyusdBalance.toFixed(2)}` : "..."}
+                {pyusdBalance !== undefined ? `$${pyusdBalance.toFixed(isMobile ? 0 : 2)}` : "..."}
               </span>
-              <span
-                className="text-xs"
-                style={{ color: "#4a7a66" }}
-              >
-                PYUSD
-              </span>
+              {!isMobile && (
+                <span
+                  className="text-xs"
+                  style={{ color: "#4a7a66" }}
+                >
+                  PYUSD
+                </span>
+              )}
             </div>
             {(pyusdBalance === undefined || pyusdBalance < FUND_THRESHOLD) && (
               <button
                 onClick={handleFundDemo}
                 disabled={funding || fundingLoading}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-full transition-colors"
+                className={`flex items-center gap-1.5 ${isMobile ? "px-2 py-1.5" : "px-3 py-2"} rounded-full transition-colors`}
                 style={{
                   background: funding ? "#1a2721" : "#111a16",
                   border: "1px solid #1e3329",
                   color: funding ? "#4a7a66" : "#00ff88",
                   cursor: funding ? "wait" : "pointer",
-                  fontSize: 12,
+                  fontSize: isMobile ? 11 : 12,
                   fontWeight: 600,
                   opacity: funding ? 0.7 : 1,
                 }}
               >
-                {funding ? "Funding..." : "Fund Demo"}
+                {funding ? "..." : "Fund"}
               </button>
             )}
-            {fundMessage && (
+            {fundMessage && !isMobile && (
               <span
                 className="text-xs font-medium"
                 style={{
@@ -119,34 +123,36 @@ export default function BottomBar({
                 {fundMessage}
               </span>
             )}
-            <div
-              className="flex items-center gap-2 px-3 py-2 rounded-full"
-              style={{ background: "#111a16" }}
-            >
-              <span
-                className="text-xs font-medium tabular-nums"
-                style={{ color: "#8ac4a7" }}
+            {!isMobile && (
+              <div
+                className="flex items-center gap-2 px-3 py-2 rounded-full"
+                style={{ background: "#111a16" }}
               >
-                {balance !== null ? formatBalance(balance) : "..."}
-              </span>
-              <span
-                className="text-[10px]"
-                style={{ color: "#3d5c4d" }}
-              >
-                FLOW
-              </span>
-            </div>
+                <span
+                  className="text-xs font-medium tabular-nums"
+                  style={{ color: "#8ac4a7" }}
+                >
+                  {balance !== null ? formatBalance(balance) : "..."}
+                </span>
+                <span
+                  className="text-[10px]"
+                  style={{ color: "#3d5c4d" }}
+                >
+                  FLOW
+                </span>
+              </div>
+            )}
           </>
         ) : (
           <button
             onClick={onLoginClick}
-            className="flex items-center gap-2 px-4 py-2 rounded-full"
+            className={`flex items-center gap-2 ${isMobile ? "px-3 py-1.5" : "px-4 py-2"} rounded-full`}
             style={{
               background: "#111a16",
               border: "1px solid #1e3329",
               color: "#4a7a66",
               cursor: "pointer",
-              fontSize: 13,
+              fontSize: isMobile ? 12 : 13,
             }}
           >
             Login to bet
@@ -155,13 +161,13 @@ export default function BottomBar({
       </div>
 
       {/* Bet size selector */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-shrink-0">
         <button
           onClick={() => cycleBetSize(-1)}
           className="flex items-center justify-center rounded-full transition-colors"
           style={{
-            width: 32,
-            height: 32,
+            width: isMobile ? 28 : 32,
+            height: isMobile ? 28 : 32,
             background: "#111a16",
             border: "1px solid #1e3329",
             color: "#4a7a66",
@@ -172,15 +178,15 @@ export default function BottomBar({
           −
         </button>
         <div
-          className="flex items-center gap-2 px-4 py-2 rounded-full"
+          className={`flex items-center gap-2 ${isMobile ? "px-3 py-1.5" : "px-4 py-2"} rounded-full`}
           style={{
             background: "#111a16",
             border: "1px solid #1e3329",
           }}
         >
-          <ChipIcon size={16} color="#00ff88" />
+          <ChipIcon size={isMobile ? 14 : 16} color="#00ff88" />
           <span
-            className="text-sm font-bold tabular-nums"
+            className={`${isMobile ? "text-xs" : "text-sm"} font-bold tabular-nums`}
             style={{ color: "#ffffff" }}
           >
             ${betSize}
@@ -190,8 +196,8 @@ export default function BottomBar({
           onClick={() => cycleBetSize(1)}
           className="flex items-center justify-center rounded-full transition-colors"
           style={{
-            width: 32,
-            height: 32,
+            width: isMobile ? 28 : 32,
+            height: isMobile ? 28 : 32,
             background: "#111a16",
             border: "1px solid #1e3329",
             color: "#4a7a66",

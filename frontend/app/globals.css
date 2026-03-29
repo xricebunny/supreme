@@ -36,6 +36,9 @@ body {
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
   height: 100vh;
+  height: 100dvh; /* Dynamic viewport height for mobile browsers */
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 /* ===== Grid Cell ===== */
@@ -194,4 +197,27 @@ body {
   border: 1px solid #40efff !important;
   box-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
   z-index: 8;
+}
+
+/* ===== Mobile Overrides ===== */
+@media (max-width: 768px) {
+  html, body {
+    height: 100dvh;
+  }
+
+  /* Disable hover glow on touch devices — prevents sticky hover states */
+  .grid-cell:hover::before,
+  .grid-cell:hover::after {
+    display: none;
+  }
+
+  /* Larger touch targets for grid cells */
+  .grid-cell {
+    min-height: 40px;
+  }
+
+  /* Smaller payout text on mobile to fit narrower cells */
+  .cell-payout {
+    font-size: 9px;
+  }
 }

@@ -30,9 +30,10 @@ function formatPnl(n: number): string {
 interface ProfileProps {
   pyusdBalance: number;
   onLoginClick: () => void;
+  isMobile?: boolean;
 }
 
-export default function Profile({ pyusdBalance, onLoginClick }: ProfileProps) {
+export default function Profile({ pyusdBalance, onLoginClick, isMobile }: ProfileProps) {
   const { isLoggedIn, email, address } = useAuth();
   const { positions, stats, loading, error, refetch } = useProfile(address);
 
@@ -86,14 +87,14 @@ export default function Profile({ pyusdBalance, onLoginClick }: ProfileProps) {
     >
       {/* Header */}
       <div
-        className="flex-shrink-0 px-6 pt-6 pb-4"
+        className={`flex-shrink-0 ${isMobile ? "px-4 pt-4 pb-3" : "px-6 pt-6 pb-4"}`}
         style={{ borderBottom: "1px solid #1e3329" }}
       >
         <div className="flex items-center gap-3 mb-4">
-          <ProfileIcon size={22} color="#00ff88" />
+          <ProfileIcon size={isMobile ? 18 : 22} color="#00ff88" />
           <h2
             style={{
-              fontSize: 20,
+              fontSize: isMobile ? 17 : 20,
               fontWeight: 700,
               color: "#ffffff",
               margin: 0,
@@ -104,31 +105,41 @@ export default function Profile({ pyusdBalance, onLoginClick }: ProfileProps) {
         </div>
 
         {/* Account info */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <div
             style={{
-              width: 48,
-              height: 48,
+              width: isMobile ? 36 : 48,
+              height: isMobile ? 36 : 48,
               borderRadius: "50%",
               background: "linear-gradient(135deg, #00ff88, #00b4d8)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: 20,
+              fontSize: isMobile ? 16 : 20,
               fontWeight: 700,
               color: "#0a0f0d",
+              flexShrink: 0,
             }}
           >
             {(email?.[0] ?? "?").toUpperCase()}
           </div>
-          <div>
-            <div style={{ fontSize: 14, color: "#ffffff", fontWeight: 600 }}>
+          <div className="min-w-0 flex-1">
+            <div
+              style={{
+                fontSize: isMobile ? 13 : 14,
+                color: "#ffffff",
+                fontWeight: 600,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
               {email}
             </div>
             {address && (
               <div
                 style={{
-                  fontSize: 12,
+                  fontSize: isMobile ? 11 : 12,
                   color: "#4a7a66",
                   fontFamily: "monospace",
                   marginTop: 2,
@@ -138,7 +149,7 @@ export default function Profile({ pyusdBalance, onLoginClick }: ProfileProps) {
               </div>
             )}
           </div>
-          <div className="ml-auto">
+          <div className="flex-shrink-0">
             <div
               className="flex items-center gap-2 px-3 py-1.5 rounded-full"
               style={{
@@ -150,7 +161,7 @@ export default function Profile({ pyusdBalance, onLoginClick }: ProfileProps) {
                 className="text-xs font-bold tabular-nums"
                 style={{ color: "#00ff88" }}
               >
-                ${pyusdBalance.toFixed(2)}
+                ${pyusdBalance.toFixed(isMobile ? 0 : 2)}
               </span>
               <span className="text-[10px]" style={{ color: "#4a7a66" }}>
                 PYUSD
@@ -162,7 +173,7 @@ export default function Profile({ pyusdBalance, onLoginClick }: ProfileProps) {
 
       {/* Stats grid */}
       <div
-        className="flex-shrink-0 px-6 py-4"
+        className={`flex-shrink-0 ${isMobile ? "px-4 py-3" : "px-6 py-4"}`}
         style={{ borderBottom: "1px solid #1e3329" }}
       >
         {loading && positions.length === 0 ? (
@@ -171,7 +182,7 @@ export default function Profile({ pyusdBalance, onLoginClick }: ProfileProps) {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-4 gap-3">
+            <div className={`grid ${isMobile ? "grid-cols-2 gap-2" : "grid-cols-4 gap-3"}`}>
               {[
                 { label: "Win Rate", value: stats.totalBets > 0 ? `${stats.winRate.toFixed(1)}%` : "—", color: "#00ff88" },
                 { label: "Total Bets", value: `${stats.totalBets}`, color: "#8ac4a7" },
@@ -253,7 +264,7 @@ export default function Profile({ pyusdBalance, onLoginClick }: ProfileProps) {
       </div>
 
       {/* Bet history */}
-      <div className="flex-1 overflow-y-auto px-6 py-4 min-h-0">
+      <div className={`flex-1 overflow-y-auto ${isMobile ? "px-3 py-3" : "px-6 py-4"} min-h-0`}>
         <div className="flex items-center justify-between mb-3">
           <div
             style={{
@@ -312,29 +323,29 @@ export default function Profile({ pyusdBalance, onLoginClick }: ProfileProps) {
           <>
             {/* Table header */}
             <div
-              className="flex items-center gap-3 px-3 pb-3 mb-2"
+              className={`flex items-center ${isMobile ? "gap-2 px-2 pb-2" : "gap-3 px-3 pb-3"} mb-2`}
               style={{
                 borderBottom: "1px solid #1e3329",
-                fontSize: 11,
+                fontSize: isMobile ? 10 : 11,
                 fontWeight: 600,
                 color: "#4a7a66",
                 textTransform: "uppercase",
                 letterSpacing: "0.5px",
               }}
             >
-              <div style={{ width: 50 }}>Token</div>
-              <div style={{ width: 70, textAlign: "right" }}>Stake</div>
-              <div style={{ width: 60, textAlign: "right" }}>Multi</div>
+              {!isMobile && <div style={{ width: 50 }}>Token</div>}
+              <div style={{ width: isMobile ? 50 : 70, textAlign: "right" }}>Stake</div>
+              <div style={{ width: isMobile ? 45 : 60, textAlign: "right" }}>Multi</div>
               <div style={{ flex: 1, textAlign: "right" }}>Result</div>
-              <div style={{ width: 80, textAlign: "right" }}>Run. P&L</div>
-              <div style={{ width: 70, textAlign: "right" }}>Time</div>
+              {!isMobile && <div style={{ width: 80, textAlign: "right" }}>Run. P&L</div>}
+              <div style={{ width: isMobile ? 50 : 70, textAlign: "right" }}>Time</div>
             </div>
 
             {/* Rows */}
             {positions.map((pos, idx) => (
               <div
                 key={pos.id}
-                className="flex items-center gap-3 px-3 py-3 rounded-lg transition-colors"
+                className={`flex items-center ${isMobile ? "gap-2 px-2 py-2.5" : "gap-3 px-3 py-3"} rounded-lg transition-colors`}
                 style={{
                   borderBottom: "1px solid rgba(30, 51, 41, 0.5)",
                 }}
@@ -345,21 +356,23 @@ export default function Profile({ pyusdBalance, onLoginClick }: ProfileProps) {
                   e.currentTarget.style.background = "transparent";
                 }}
               >
+                {!isMobile && (
+                  <div
+                    style={{
+                      width: 50,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: "#8ac4a7",
+                    }}
+                  >
+                    {pos.token}
+                  </div>
+                )}
                 <div
                   style={{
-                    width: 50,
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: "#8ac4a7",
-                  }}
-                >
-                  {pos.token}
-                </div>
-                <div
-                  style={{
-                    width: 70,
+                    width: isMobile ? 50 : 70,
                     textAlign: "right",
-                    fontSize: 13,
+                    fontSize: isMobile ? 12 : 13,
                     color: "#8ac4a7",
                   }}
                 >
@@ -367,9 +380,9 @@ export default function Profile({ pyusdBalance, onLoginClick }: ProfileProps) {
                 </div>
                 <div
                   style={{
-                    width: 60,
+                    width: isMobile ? 45 : 60,
                     textAlign: "right",
-                    fontSize: 13,
+                    fontSize: isMobile ? 12 : 13,
                     color: "#4a7a66",
                   }}
                 >
@@ -379,7 +392,7 @@ export default function Profile({ pyusdBalance, onLoginClick }: ProfileProps) {
                   style={{
                     flex: 1,
                     textAlign: "right",
-                    fontSize: 13,
+                    fontSize: isMobile ? 12 : 13,
                     fontWeight: 600,
                     color: !pos.settled
                       ? "#f59e0b"
@@ -394,23 +407,25 @@ export default function Profile({ pyusdBalance, onLoginClick }: ProfileProps) {
                       ? `+${formatUsd(pos.payout - pos.stake)}`
                       : `-${formatUsd(pos.stake)}`}
                 </div>
+                {!isMobile && (
+                  <div
+                    style={{
+                      width: 80,
+                      textAlign: "right",
+                      fontSize: 12,
+                      fontWeight: 500,
+                      fontFamily: "monospace",
+                      color: runningPnl[idx] >= 0 ? "#00ff88" : "#ef4444",
+                    }}
+                  >
+                    {formatPnl(runningPnl[idx])}
+                  </div>
+                )}
                 <div
                   style={{
-                    width: 80,
+                    width: isMobile ? 50 : 70,
                     textAlign: "right",
-                    fontSize: 12,
-                    fontWeight: 500,
-                    fontFamily: "monospace",
-                    color: runningPnl[idx] >= 0 ? "#00ff88" : "#ef4444",
-                  }}
-                >
-                  {formatPnl(runningPnl[idx])}
-                </div>
-                <div
-                  style={{
-                    width: 70,
-                    textAlign: "right",
-                    fontSize: 11,
+                    fontSize: isMobile ? 10 : 11,
                     color: "#3d5c4d",
                   }}
                 >
