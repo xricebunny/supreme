@@ -226,3 +226,227 @@ fun testGetNonexistentPosition() {
     Test.expect(result, Test.beSucceeded())
     Test.assertEqual(true, result.returnValue! as! Bool)
 }
+
+// ── Settlement Helpers ─────────────────────────────────────────────────
+
+access(all)
+fun pushTestPrice(_ price: UFix64, _ timestamp: UFix64) {
+    let tx = Test.Transaction(
+        code: "import PriceOracle from ".concat(ADDR).concat(
+            "; transaction(price: UFix64, ts: UFix64) { prepare(signer: auth(BorrowValue) &Account) { signer.storage.borrow<&PriceOracle.Admin>(from: PriceOracle.AdminStoragePath)!.pushPrice(price: price, timestamp: ts) } }"
+        ),
+        authorizers: [admin.address],
+        signers: [admin],
+        arguments: [price, timestamp]
+    )
+    Test.expect(Test.executeTransaction(tx), Test.beSucceeded())
+}
+
+access(all)
+fun pushTestRange(_ high: UFix64, _ low: UFix64) {
+    let tx = Test.Transaction(
+        code: "import PriceRangeOracle from ".concat(ADDR).concat(
+            "; transaction(high: UFix64, low: UFix64) { prepare(signer: auth(BorrowValue) &Account) { signer.storage.borrow<&PriceRangeOracle.Admin>(from: PriceRangeOracle.AdminStoragePath)!.pushRange(high: high, low: low) } }"
+        ),
+        authorizers: [admin.address],
+        signers: [admin],
+        arguments: [high, low]
+    )
+    Test.expect(Test.executeTransaction(tx), Test.beSucceeded())
+}
+
+access(all)
+fun openTestPosition(
+    _ amount: UFix64,
+    _ targetPrice: UFix64,
+    _ aboveTarget: Bool,
+    _ multiplier: UFix64,
+    _ entryPrice: UFix64,
+    _ durationBlocks: UInt64
+): UInt64 {
+    let tx = Test.Transaction(
+        code: "import FungibleToken from ".concat(FT_ADDR).concat("; import MockPYUSD from ").concat(ADDR).concat("; import PredictionGame from ").concat(ADDR).concat(
+            "; transaction(amount: UFix64, targetPrice: UFix64, aboveTarget: Bool, multiplier: UFix64, entryPrice: UFix64, durationBlocks: UInt64, expiryTimestamp: UFix64) { let userVault: @MockPYUSD.Vault; let adminRef: &PredictionGame.Admin; let userAddr: Address; prepare(userAcct: auth(BorrowValue) &Account, adminAcct: auth(BorrowValue) &Account) { let v = userAcct.storage.borrow<auth(FungibleToken.Withdraw) &MockPYUSD.Vault>(from: MockPYUSD.VaultStoragePath)!; self.userVault <- v.withdraw(amount: amount) as! @MockPYUSD.Vault; self.userAddr = userAcct.address; self.adminRef = adminAcct.storage.borrow<&PredictionGame.Admin>(from: PredictionGame.AdminStoragePath)! } execute { self.adminRef.openPosition(userVault: <-self.userVault, owner: self.userAddr, targetPrice: targetPrice, aboveTarget: aboveTarget, multiplier: multiplier, entryPrice: entryPrice, durationBlocks: durationBlocks, expiryTimestamp: expiryTimestamp) } }"
+        ),
+        authorizers: [user.address, admin.address],
+        signers: [user, admin],
+        arguments: [amount, targetPrice, aboveTarget, multiplier, entryPrice, durationBlocks, 1711700050.0 as UFix64]
+    )
+    Test.expect(Test.executeTransaction(tx), Test.beSucceeded())
+
+    let r = Test.executeScript(
+        "import PredictionGame from ".concat(ADDR).concat(
+            "; access(all) fun main(): UInt64 { return PredictionGame.getPositionCount() }"
+        ), []
+    )
+    Test.expect(r, Test.beSucceeded())
+    return r.returnValue! as! UInt64
+}
+
+access(all)
+fun settleTestPosition(_ positionId: UInt64) {
+    let tx = Test.Transaction(
+        code: "import PredictionGame from ".concat(ADDR).concat(
+            "; transaction(id: UInt64) { prepare(signer: auth(BorrowValue) &Account) { signer.storage.borrow<&PredictionGame.Admin>(from: PredictionGame.AdminStoragePath)!.settlePosition(positionId: id) } }"
+        ),
+        authorizers: [admin.address],
+        signers: [admin],
+        arguments: [positionId]
+    )
+    Test.expect(Test.executeTransaction(tx), Test.beSucceeded())
+}
+
+access(all)
+fun settleTestPositionExpectFail(_ positionId: UInt64) {
+    let tx = Test.Transaction(
+        code: "import PredictionGame from ".concat(ADDR).concat(
+            "; transaction(id: UInt64) { prepare(signer: auth(BorrowValue) &Account) { signer.storage.borrow<&PredictionGame.Admin>(from: PredictionGame.AdminStoragePath)!.settlePosition(positionId: id) } }"
+        ),
+        authorizers: [admin.address],
+        signers: [admin],
+        arguments: [positionId]
+    )
+    Test.expect(Test.executeTransaction(tx), Test.beFailed())
+}
+
+access(all)
+fun getPositionResult(_ positionId: UInt64): [UFix64] {
+    let r = Test.executeScript(
+        "import PredictionGame from ".concat(ADDR).concat(
+            "; access(all) fun main(id: UInt64): [UFix64] { let p = PredictionGame.getPosition(positionId: id)!; return [p.settled ? 1.0 : 0.0, (p.won ?? false) ? 1.0 : 0.0, p.payout ?? 0.0] }"
+        ),
+        [positionId]
+    )
+    Test.expect(r, Test.beSucceeded())
+    return r.returnValue! as! [UFix64]
+}
+
+access(all)
+fun getUserPYUSDBalance(): UFix64 {
+    let r = Test.executeScript(
+        "import MockPYUSD from ".concat(ADDR).concat(
+            "; access(all) fun main(addr: Address): UFix64 { return getAccount(addr).capabilities.borrow<&MockPYUSD.Vault>(MockPYUSD.VaultPublicPath)!.balance }"
+        ),
+        [user.address]
+    )
+    Test.expect(r, Test.beSucceeded())
+    return r.returnValue! as! UFix64
+}
+
+access(all)
+fun getHouseTestBalance(): UFix64 {
+    let r = Test.executeScript(
+        "import PredictionGame from ".concat(ADDR).concat(
+            "; access(all) fun main(): UFix64 { return PredictionGame.getHouseBalance() }"
+        ), []
+    )
+    Test.expect(r, Test.beSucceeded())
+    return r.returnValue! as! UFix64
+}
+
+// ── Settlement Tests ───────────────────────────────────────────────────
+
+access(all)
+fun testSettleWinAboveViaRange() {
+    let balBefore = getUserPYUSDBalance()
+    let houseBefore = getHouseTestBalance()
+
+    // Keep oracle current
+    pushTestPrice(96600.0, 1711700100.0)
+
+    // Open: target=97000, above=true, mult=2x, stake=10, duration=3
+    let posId = openTestPosition(10.0, 97000.0, true, 2.0, 96600.0, 3)
+
+    // Range with high=97500 touches target=97000
+    pushTestRange(97500.0, 96000.0)
+
+    // Advance blocks past expiry
+    pushTestPrice(96700.0, 1711700200.0)
+    pushTestPrice(96700.0, 1711700300.0)
+
+    // Settle
+    settleTestPosition(posId)
+
+    // Verify: won with payout = 10 * 2 = 20
+    let result = getPositionResult(posId)
+    Test.assertEqual(1.0, result[0])  // settled
+    Test.assertEqual(1.0, result[1])  // won
+    Test.assertEqual(20.0, result[2]) // payout
+
+    // User: -10 stake +20 payout = +10 net
+    Test.assertEqual(balBefore + 10.0, getUserPYUSDBalance())
+    // House: +10 stake -20 payout = -10 net
+    Test.assertEqual(houseBefore - 10.0, getHouseTestBalance())
+}
+
+access(all)
+fun testSettleLoseAbove() {
+    // Target=99000 is unreachable
+    let posId = openTestPosition(10.0, 99000.0, true, 3.0, 96700.0, 3)
+
+    // Range high=97000 doesn't reach 99000
+    pushTestRange(97000.0, 96000.0)
+
+    pushTestPrice(96800.0, 1711700400.0)
+    pushTestPrice(96800.0, 1711700500.0)
+
+    settleTestPosition(posId)
+
+    let result = getPositionResult(posId)
+    Test.assertEqual(1.0, result[0])  // settled
+    Test.assertEqual(0.0, result[1])  // lost
+    Test.assertEqual(0.0, result[2])  // no payout
+}
+
+access(all)
+fun testSettleWinBelowViaRange() {
+    // Target=96000, below bet: low must reach <= 96000
+    let posId = openTestPosition(10.0, 96000.0, false, 2.0, 96800.0, 3)
+
+    // Range low=95500 touches target=96000 for below bet
+    pushTestRange(97000.0, 95500.0)
+
+    pushTestPrice(96500.0, 1711700600.0)
+    pushTestPrice(96500.0, 1711700700.0)
+
+    settleTestPosition(posId)
+
+    let result = getPositionResult(posId)
+    Test.assertEqual(1.0, result[0])  // settled
+    Test.assertEqual(1.0, result[1])  // won
+    Test.assertEqual(20.0, result[2]) // payout = 10 * 2
+}
+
+access(all)
+fun testSettleWinFallbackToClosePrice() {
+    // No range data pushed — only close prices
+    let posId = openTestPosition(10.0, 97000.0, true, 2.0, 96500.0, 3)
+
+    // Close price 97200 >= target 97000 (no pushRange — tests fallback path)
+    pushTestPrice(97200.0, 1711700800.0)
+
+    pushTestPrice(96600.0, 1711700900.0)
+    pushTestPrice(96600.0, 1711701000.0)
+
+    settleTestPosition(posId)
+
+    let result = getPositionResult(posId)
+    Test.assertEqual(1.0, result[0])  // settled
+    Test.assertEqual(1.0, result[1])  // won via close price fallback
+    Test.assertEqual(20.0, result[2]) // payout
+}
+
+access(all)
+fun testSettleRejectsAlreadySettled() {
+    // Position 2 was settled in testSettleWinAboveViaRange — confirm and retry
+    let result = getPositionResult(2)
+    Test.assertEqual(1.0, result[0]) // already settled
+    settleTestPositionExpectFail(2)
+}
+
+access(all)
+fun testSettleRejectsNotExpired() {
+    // Very long duration — won't be expired for a long time
+    let posId = openTestPosition(5.0, 97000.0, true, 2.0, 96600.0, 1000)
+    settleTestPositionExpectFail(posId)
+}
