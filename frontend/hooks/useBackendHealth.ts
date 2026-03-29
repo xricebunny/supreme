@@ -29,7 +29,10 @@ export function useBackendHealth(symbol: TokenSymbol = "btc"): BackendHealth {
       try {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 3000);
-        const res = await fetch(`${API_BASE}/api/health?symbol=${symbol}`, { signal: controller.signal });
+        const res = await fetch(`${API_BASE}/api/health?symbol=${symbol}`, {
+          signal: controller.signal,
+          headers: { "ngrok-skip-browser-warning": "true" },
+        });
         clearTimeout(timeout);
         if (cancelled) return;
         const data = await res.json();
