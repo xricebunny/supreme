@@ -1,5 +1,7 @@
 # Supreme — Price Prediction Game on Flow
 
+**[Live Demo → supreme-beta.vercel.app](https://supreme-beta.vercel.app/)**
+
 Real-time grid-based price prediction game supporting BTC and FLOW. Click a cell on the price/time grid to bet that the asset's price will touch that price level within the cell's 5-second window. Instant optimistic UI, on-chain settlement via multi-auth Flow transactions.
 
 ## Quick Start
@@ -16,6 +18,8 @@ npm install && npm run dev
 ```
 
 Frontend: http://localhost:3000 | Backend API: http://localhost:3001
+
+Or try the live deployment at **https://supreme-beta.vercel.app/**
 
 ## Architecture
 
@@ -86,7 +90,8 @@ supreme/
 │   ├── contracts/              # MockPYUSD, PriceOracle, PriceRangeOracle, PredictionGame,
 │   │                           # FlowPriceOracle, FlowPriceRangeOracle, FlowPredictionGame
 │   ├── transactions/           # openPosition, settlePosition, mintPYUSD, pushPrice, pushRange, etc.
-│   └── scripts/                # getPYUSDBalance, getPosition, listUnsettledExpired, etc.
+│   ├── scripts/                # getPYUSDBalance, getPosition, listUnsettledExpired, etc.
+│   └── tests/                  # Cadence test suites (35 tests across 4 contracts)
 └── flow.json                   # Flow CLI config, testnet deployment addresses
 ```
 
@@ -136,6 +141,21 @@ Flow config hardcoded in `frontend/lib/flow.ts`.
 - Price step: dynamic "nice number" series (`currentPrice / 10000` → 1/2/10 rounding). BTC ~$96k → $10 steps.
 - Multiplier: `base * exp(rowDist * rowFactor) * pow(colDist, timePow) / exp(rowDist * colDecay)`, capped at 100x
 - Win condition: any Binance price during the cell's 5-second window falls within the cell's price band
+
+## Testing
+
+Cadence smart contract tests cover all 4 core contracts (35 tests):
+
+```bash
+flow test
+```
+
+| Test Suite | Tests | Coverage |
+|------------|-------|----------|
+| `MockPYUSD_test.cdc` | 4 | Mint, transfer, withdraw, storage paths |
+| `PriceOracle_test.cdc` | 13 | Push, read, config, access control, edge cases |
+| `PriceRangeOracle_test.cdc` | 7 | Push, read, validation, access control |
+| `PredictionGame_test.cdc` | 11 | Open position, config, validation, house funding, views |
 
 ## Trust Model
 
