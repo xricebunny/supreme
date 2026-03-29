@@ -65,6 +65,9 @@ All deployed at **`0xb36266e524c6c727`**:
 | `FlowPriceOracle` | FLOW price history (same design as PriceOracle) |
 | `FlowPriceRangeOracle` | High/low price ranges per oracle push (FLOW) |
 | `FlowPredictionGame` | FLOW positions — uses FlowToken instead of MockPYUSD |
+| `BonusRound` | Streak-based bonus multiplier using Flow's on-chain randomness (commit-reveal) |
+| `RandomConsumer` | Secure randomness consumption from Flow's random beacon |
+| `Xorshift128plus` | PRG struct (xorshift128+ algorithm) for deterministic random number generation |
 
 ## Project Structure
 
@@ -72,10 +75,13 @@ All deployed at **`0xb36266e524c6c727`**:
 supreme/
 ├── frontend/                   # Next.js 14 + React 18 + Tailwind
 │   ├── app/                    # App Router (layout, page, providers)
-│   ├── components/             # GameGrid, PriceLine, Sidebar, BottomBar, LoginModal
+│   ├── components/             # GameGrid, GridCell, PriceLine, PriceDisplay, Sidebar, BottomBar,
+│   │                           # LoginModal, Profile, Leaderboard, Icons
 │   ├── contexts/               # AuthProvider (Magic.link), MagicProvider
-│   ├── hooks/                  # useBinancePrice, useAnimationTime, useBetManager, useBalance, useTokenSelector
-│   ├── lib/                    # api, flow config, serverSigner, transactions, multiplier, formatters
+│   ├── hooks/                  # useBinancePrice, useAnimationTime, useBetManager, useBalance,
+│   │                           # useTokenSelector, useGameState, useBackendHealth, useLeaderboard,
+│   │                           # useProfile, useIsMobile
+│   ├── lib/                    # api, flow config, serverSigner, transactions, multiplier, formatters, tokenTheme
 │   └── types/
 ├── backend/                    # Express + TypeScript
 │   └── src/
@@ -88,10 +94,11 @@ supreme/
 │       └── multiplier.ts       # Payout formula (mirrors frontend)
 ├── cadence/
 │   ├── contracts/              # MockPYUSD, PriceOracle, PriceRangeOracle, PredictionGame,
-│   │                           # FlowPriceOracle, FlowPriceRangeOracle, FlowPredictionGame
+│   │                           # FlowPriceOracle, FlowPriceRangeOracle, FlowPredictionGame,
+│   │                           # BonusRound, RandomConsumer, Xorshift128plus
 │   ├── transactions/           # openPosition, settlePosition, mintPYUSD, pushPrice, pushRange, etc.
 │   ├── scripts/                # getPYUSDBalance, getPosition, listUnsettledExpired, etc.
-│   └── tests/                  # Cadence test suites (35 tests across 4 contracts)
+│   └── tests/                  # Cadence test suites (54 tests across 5 contracts)
 └── flow.json                   # Flow CLI config, testnet deployment addresses
 ```
 
@@ -116,6 +123,9 @@ supreme/
 | GET | `/api/price?symbol=btc\|flow` | Current Binance price + staleness info |
 | GET | `/api/positions/:address?symbol=btc\|flow` | On-chain positions for a user |
 | GET | `/api/health?symbol=btc\|flow` | Oracle status, admin address, active key count |
+| GET | `/api/house-balance?symbol=btc\|flow` | Current house balance for specified asset |
+| GET | `/api/leaderboard` | Ranked leaderboard by net P&L across BTC + FLOW |
+| GET | `/api/debug/position/:id` | Diagnostic: oracle data and ranges for a position |
 
 ## Environment Variables
 
@@ -144,7 +154,7 @@ Flow config hardcoded in `frontend/lib/flow.ts`.
 
 ## Testing
 
-Cadence smart contract tests cover all 4 core contracts (35 tests):
+Cadence smart contract tests cover 5 contracts (54 tests):
 
 ```bash
 flow test
@@ -155,7 +165,8 @@ flow test
 | `MockPYUSD_test.cdc` | 4 | Mint, transfer, withdraw, storage paths |
 | `PriceOracle_test.cdc` | 13 | Push, read, config, access control, edge cases |
 | `PriceRangeOracle_test.cdc` | 7 | Push, read, validation, access control |
-| `PredictionGame_test.cdc` | 11 | Open position, config, validation, house funding, views |
+| `PredictionGame_test.cdc` | 17 | Open position, config, validation, house funding, settlement, views |
+| `BonusRound_test.cdc` | 13 | Streak tracking, bonus claiming, random tier selection, access control |
 
 ## Trust Model
 
