@@ -13,6 +13,17 @@ export const TOKEN_PAIRS: Record<TokenSymbol, string> = {
   flow: "FLOW / USDT",
 };
 
+const STORAGE_KEY = "supreme:token";
+const VALID_TOKENS: TokenSymbol[] = ["btc", "flow"];
+
+function loadToken(fallback: TokenSymbol): TokenSymbol {
+  if (typeof window === "undefined") return fallback;
+  const stored = localStorage.getItem(STORAGE_KEY);
+  return stored && VALID_TOKENS.includes(stored as TokenSymbol)
+    ? (stored as TokenSymbol)
+    : fallback;
+}
+
 interface UseTokenSelectorReturn {
   token: TokenSymbol;
   setToken: (token: TokenSymbol) => void;
@@ -20,11 +31,12 @@ interface UseTokenSelectorReturn {
   tokenPair: string;
 }
 
-export function useTokenSelector(initial: TokenSymbol = "btc"): UseTokenSelectorReturn {
-  const [token, setTokenState] = useState<TokenSymbol>(initial);
+export function useTokenSelector(initial: TokenSymbol = "flow"): UseTokenSelectorReturn {
+  const [token, setTokenState] = useState<TokenSymbol>(() => loadToken(initial));
 
   const setToken = useCallback((t: TokenSymbol) => {
     setTokenState(t);
+    localStorage.setItem(STORAGE_KEY, t);
   }, []);
 
   return {
