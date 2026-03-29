@@ -35,7 +35,7 @@ export function MagicProvider({ children }: { children: ReactNode }) {
         });
         setMagic(m);
       } catch (err) {
-        console.error("Failed to initialize Magic:", err);
+        // Magic initialization failed
       }
     })();
   }, []);

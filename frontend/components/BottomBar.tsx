@@ -53,7 +53,7 @@ export default function BottomBar({
     } catch (err: any) {
       setFundMessage("Funding failed — try again");
       setTimeout(() => setFundMessage(null), 4000);
-      console.error("[FundDemo]", err);
+      // fund demo failed
     } finally {
       setFunding(false);
     }

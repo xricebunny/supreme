@@ -50,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Flow balance is in UFix64 (8 decimal places), FCL returns it as a string in "drops"
       setBalance(Number(account.balance) / 100_000_000);
     } catch (err) {
-      console.error("Failed to fetch balance:", err);
+      // balance fetch failed
     }
   }, [address]);
 
@@ -86,7 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         }
       } catch (err) {
-        console.error("Session check failed:", err);
+        // session check failed
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -119,7 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await refreshBalance(flowAddress);
       }
     } catch (err) {
-      console.error("Login failed:", err);
+      // login failed
     } finally {
       setIsLoading(false);
     }
