@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { TradeIcon, TrophyIcon, ProfileIcon, SettingsIcon, MusicIcon } from "./Icons";
+import { TradeIcon, TrophyIcon, ProfileIcon } from "./Icons";
 import { useAuth } from "@/contexts/AuthProvider";
 
 export type Tab = "trade" | "leaderboard" | "profile";
@@ -189,33 +189,6 @@ export default function Sidebar({ onLoginClick, activeTab, onTabChange }: Sideba
         )}
       </div>
 
-      {/* Bottom icons */}
-      <div className="flex items-center gap-2 px-5 pb-6">
-        <button
-          className="flex items-center justify-center rounded-lg transition-colors"
-          style={{
-            width: 40,
-            height: 40,
-            background: "transparent",
-            border: "none",
-            cursor: "pointer",
-          }}
-        >
-          <SettingsIcon size={18} color="#4a7a66" />
-        </button>
-        <button
-          className="flex items-center justify-center rounded-lg transition-colors"
-          style={{
-            width: 40,
-            height: 40,
-            background: "transparent",
-            border: "none",
-            cursor: "pointer",
-          }}
-        >
-          <MusicIcon size={18} color="#4a7a66" />
-        </button>
-      </div>
     </aside>
   );
 }

@@ -89,7 +89,7 @@ export function useBetManager(
 
   // ── Expiry Resolution + Cleanup ─────────────────────────────────────────
   // Check active bets every 200ms to see if they've expired.
-  // Side effects (addBalance, console.log) are collected during the pure state
+  // Side effects (addBalance) are collected during the pure state
   // updater and applied afterwards to avoid double-firing in React StrictMode.
   useEffect(() => {
     const interval = setInterval(() => {
@@ -143,11 +143,6 @@ export function useBetManager(
                 changed = true;
                 pendingEffects.push(() => {
                   addBalanceRef.current(bet.payout);
-                  console.log(
-                    `[Bet] ✅ WON ${bet.id}: $${bet.betSize} → +$${bet.payout.toFixed(2)} | ` +
-                    `price in $${bet.priceBottom.toFixed(2)}–$${bet.priceTop.toFixed(2)} (${bet.multiplier.toFixed(2)}x) | ` +
-                    `${relevantPrices.length} prices checked`
-                  );
                 });
                 return { ...bet, status: "won" as BetStatus, resolvedAt: now };
               }
@@ -156,15 +151,6 @@ export function useBetManager(
               if (now < visualEndMs) return bet;
 
               changed = true;
-              pendingEffects.push(() => {
-                console.log(
-                  `[Bet] ❌ LOST ${bet.id}: -$${bet.betSize} | ` +
-                  `price never in $${bet.priceBottom.toFixed(2)}–$${bet.priceTop.toFixed(2)} | ` +
-                  `${relevantPrices.length} prices checked, ` +
-                  `range: $${relevantPrices.length > 0 ? relevantPrices.reduce((min, p) => Math.min(min, p.price), Infinity).toFixed(2) : "?"} – ` +
-                  `$${relevantPrices.length > 0 ? relevantPrices.reduce((max, p) => Math.max(max, p.price), 0).toFixed(2) : "?"}`
-                );
-              });
               return { ...bet, status: "lost" as BetStatus, resolvedAt: now };
             });
 
@@ -229,12 +215,6 @@ export function useBetManager(
       const currentToken = tokenRef.current;
       const tokenLabel = TOKEN_LABELS[currentToken];
 
-      console.log(
-        `[Bet] PLACED ${betId}: $${params.betSize} on ${tokenLabel} in $${params.priceBottom.toFixed(2)}–$${params.priceTop.toFixed(2)} | ` +
-        `${estimatedMultiplier.toFixed(2)}x → $${payout.toFixed(2)} payout | ` +
-        `window ${((expiryMs - 5000 - now) / 1000).toFixed(0)}s–${((expiryMs - now) / 1000).toFixed(0)}s from now`
-      );
-
       // Queue the on-chain transaction — Magic.link has a single key so
       // we must wait for each tx to seal before submitting the next one.
       // Optimistic UI is already showing; this runs in background.
@@ -286,21 +266,9 @@ export function useBetManager(
             proposer: magicLinkAuthz,
           });
 
-          console.log(`[Bet] Submitted tx: ${txId} for ${betId}`);
-
           // Wait for seal before releasing the queue to the next tx
-          const result: any = await fcl.tx(txId).onceSealed();
-          const events = result.events || [];
-          const positionEvent = events.find((e: any) => e.type.includes("PositionOpened"));
-          if (positionEvent) {
-            console.log(
-              `[Chain] ✅ Position opened on-chain: ${JSON.stringify(positionEvent.data)} | tx: ${txId}`
-            );
-          } else {
-            console.log(`[Chain] ✅ Tx sealed (${events.length} events) | tx: ${txId}`);
-          }
-        } catch (err: any) {
-          console.error("[Bet] Failed:", err.message);
+          await fcl.tx(txId).onceSealed();
+        } catch {
           // Revert optimistic state — only refund if the bet is still active
           // (it may have already resolved as won/lost via Binance prices)
           flushSync(() => {

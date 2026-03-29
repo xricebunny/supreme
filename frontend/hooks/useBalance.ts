@@ -47,13 +47,8 @@ export function useBalance(
       const prevBalance = prevChainBalanceRef.current;
       prevChainBalanceRef.current = newBalance;
 
-      console.log(
-        `[Balance] CHAIN QUERY: raw="${result}" parsed=${newBalance.toFixed(2)} prev=${prevBalance?.toFixed(2) ?? "null"}`
-      );
-
       if (prevBalance === null) {
         // First load
-        console.log(`[Balance] first load: setting chain=${newBalance.toFixed(2)}, delta=0`);
         setBalance(newBalance);
         setOptimisticDelta(0);
         return;
@@ -67,11 +62,6 @@ export function useBalance(
           const final_ = Math.abs(newDelta) < 0.01 ? 0 : newDelta;
           if (final_ === 0) deltaChangedAtRef.current = 0;
           else deltaChangedAtRef.current = Date.now();
-          console.log(
-            `[Balance] poll: chain=${newBalance.toFixed(2)} chainΔ=${chainDelta.toFixed(2)} | ` +
-            `optΔ: ${prev.toFixed(2)} → ${final_.toFixed(2)} | ` +
-            `display: ${(newBalance + final_).toFixed(2)}`
-          );
           return final_;
         });
       } else {
@@ -79,18 +69,14 @@ export function useBalance(
         // This handles cases where frontend thinks a bet won but chain settled it as lost
         setOptimisticDelta((prev) => {
           if (prev !== 0 && deltaChangedAtRef.current > 0 && Date.now() - deltaChangedAtRef.current > DELTA_STALE_MS) {
-            console.log(
-              `[Balance] stale delta reset: chain=${newBalance.toFixed(2)} optΔ: ${prev.toFixed(2)} → 0 (no chain movement for ${DELTA_STALE_MS / 1000}s)`
-            );
             deltaChangedAtRef.current = 0;
             return 0;
           }
           return prev;
         });
-        console.log(`[Balance] poll: chain=${newBalance.toFixed(2)} (unchanged)`);
       }
-    } catch (err) {
-      console.error("[Balance] refresh failed:", err);
+    } catch {
+      // refresh failed silently
     } finally {
       refreshingRef.current = false;
     }
@@ -109,18 +95,12 @@ export function useBalance(
 
   const deductOptimistic = useCallback((amount: number) => {
     deltaChangedAtRef.current = Date.now();
-    setOptimisticDelta((prev) => {
-      console.log(`[Balance] deduct: -${amount.toFixed(2)} | optΔ: ${prev.toFixed(2)} → ${(prev - amount).toFixed(2)}`);
-      return prev - amount;
-    });
+    setOptimisticDelta((prev) => prev - amount);
   }, []);
 
   const addOptimistic = useCallback((amount: number) => {
     deltaChangedAtRef.current = Date.now();
-    setOptimisticDelta((prev) => {
-      console.log(`[Balance] add: +${amount.toFixed(2)} | optΔ: ${prev.toFixed(2)} → ${(prev + amount).toFixed(2)}`);
-      return prev + amount;
-    });
+    setOptimisticDelta((prev) => prev + amount);
   }, []);
 
   const mintPYUSD = useCallback(async (amount: number) => {
