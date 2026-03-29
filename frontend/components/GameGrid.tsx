@@ -27,6 +27,7 @@ interface GameGridProps {
   cellWidth: number;
   cellHeight: number;
   activeBets?: ActiveBet[];
+  isMobile?: boolean;
   onCellClick?: (params: {
     targetPrice: number;
     priceTop: number;
@@ -54,8 +55,10 @@ export default function GameGrid({
   cellWidth,
   cellHeight,
   activeBets = [],
+  isMobile,
   onCellClick,
 }: GameGridProps) {
+  const CURRENT_TIME_COL_RESOLVED = isMobile ? 2 : CURRENT_TIME_COL;
   const gridWidth = RENDER_COLS * cellWidth;
   const totalGridHeight = TOTAL_ROWS * cellHeight;
   const visibleHeight = VISIBLE_ROWS * cellHeight;
@@ -105,7 +108,7 @@ export default function GameGrid({
     const labels: (string | null)[] = [];
     const slotBaseMs = baseTimeMs + timeSlot * 5000;
     for (let c = 0; c < RENDER_COLS; c++) {
-      const colTimeMs = slotBaseMs + (c - CURRENT_TIME_COL) * 5000;
+      const colTimeMs = slotBaseMs + (c - CURRENT_TIME_COL_RESOLVED) * 5000;
       if ((timeSlot + c) % 2 === 0) {
         labels.push(formatTime(new Date(colTimeMs)));
       } else {
@@ -135,9 +138,9 @@ export default function GameGrid({
       const rowDist = Math.abs(r - currentPriceRow);
 
       for (let c = 0; c < RENDER_COLS; c++) {
-        const isPast = c < CURRENT_TIME_COL;
-        const isCurrentTime = c === CURRENT_TIME_COL;
-        const colDist = c - CURRENT_TIME_COL;
+        const isPast = c < CURRENT_TIME_COL_RESOLVED;
+        const isCurrentTime = c === CURRENT_TIME_COL_RESOLVED;
+        const colDist = c - CURRENT_TIME_COL_RESOLVED;
         const effectiveColDist = colDist - slotProgress;
 
         let multiplier = 1;
@@ -176,7 +179,7 @@ export default function GameGrid({
       // Col from startTimestamp (left edge of cell's time window)
       // Using startTimestamp avoids rounding errors — it's grid-aligned
       const betCol = Math.round(
-        CURRENT_TIME_COL + (bet.startTimestamp - slotBaseMs) / 5000
+        CURRENT_TIME_COL_RESOLVED + (bet.startTimestamp - slotBaseMs) / 5000
       );
 
       if (betRow >= 0 && betRow < TOTAL_ROWS && betCol >= 0 && betCol < RENDER_COLS) {
@@ -273,7 +276,7 @@ export default function GameGrid({
                       top: cell.row * cellHeight,
                       width: cellWidth,
                       height: cellHeight,
-                      opacity: cellBet ? 1 : cell.isPast ? 0.3 : (cell.isCurrentTime || isBuffer) ? 0.5 : 1,
+                      opacity: cellBet ? 1 : cell.isPast ? (isMobile ? 0.15 : 0.3) : (cell.isCurrentTime || isBuffer) ? 0.5 : 1,
                       background: cellBet && cellBet.status === "active"
                         ? "rgba(0, 200, 255, 0.15)"
                         : undefined,
@@ -293,7 +296,7 @@ export default function GameGrid({
                             // Compute exact wall-clock timestamps for this column
                             // to avoid rounding errors when mapping bet back to cell
                             const slotBase = baseTimeMs + timeSlot * 5000;
-                            const colStartTimeMs = slotBase + (cell.col - CURRENT_TIME_COL) * 5000;
+                            const colStartTimeMs = slotBase + (cell.col - CURRENT_TIME_COL_RESOLVED) * 5000;
                             const colEndTimeMs = colStartTimeMs + 5000;
                             onCellClick!({
                               targetPrice,
@@ -345,7 +348,7 @@ export default function GameGrid({
               priceHistory={priceHistory}
               cellHeight={cellHeight}
               cellWidth={cellWidth}
-              currentTimeCol={CURRENT_TIME_COL}
+              currentTimeCol={CURRENT_TIME_COL_RESOLVED}
               priceStep={priceStep}
               priceMax={priceMax}
               baseTimeMs={baseTimeMs}
@@ -360,7 +363,7 @@ export default function GameGrid({
         <div
           className="absolute top-0 bottom-0 pointer-events-none"
           style={{
-            left: (CURRENT_TIME_COL + 1) * cellWidth,
+            left: (CURRENT_TIME_COL_RESOLVED + 1) * cellWidth,
             width: 2,
             background:
               "linear-gradient(to bottom, transparent, rgba(0, 255, 136, 0.4), transparent)",

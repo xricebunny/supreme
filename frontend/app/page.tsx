@@ -340,6 +340,7 @@ export default function TradePage() {
                 cellWidth={cellWidth}
                 cellHeight={cellHeight}
                 activeBets={activeBets}
+                isMobile={isMobile}
                 onCellClick={handleCellClick}
               />
             )}
