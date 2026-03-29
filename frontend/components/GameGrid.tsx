@@ -269,7 +269,9 @@ export default function GameGrid({
                 return (
                   <div
                     key={cellBet ? cellBet.id : `${cell.row}-${cell.col}`}
-                    className={`grid-cell ${betClass} ${isClickable ? "cursor-pointer hover:bg-[#00ff8810]" : ""}`}
+                    className={`grid-cell ${betClass} ${isClickable ? "cursor-pointer" : ""}`}
+                    onMouseEnter={isClickable ? (e) => { e.currentTarget.style.background = "rgba(var(--neon-rgb), 0.06)"; } : undefined}
+                    onMouseLeave={isClickable ? (e) => { e.currentTarget.style.background = ""; } : undefined}
                     style={{
                       position: "absolute",
                       left: cell.col * cellWidth,
@@ -366,7 +368,7 @@ export default function GameGrid({
             left: (CURRENT_TIME_COL_RESOLVED + 1) * cellWidth,
             width: 2,
             background:
-              "linear-gradient(to bottom, transparent, rgba(0, 255, 136, 0.4), transparent)",
+              "linear-gradient(to bottom, transparent, rgba(var(--neon-rgb), 0.4), transparent)",
             zIndex: 10,
           }}
         />
@@ -411,7 +413,7 @@ export default function GameGrid({
           className="absolute right-0 px-2 py-1 rounded-l-md text-xs font-bold tabular-nums"
           style={{
             top: priceBadgeTop,
-            background: "#00ff88",
+            background: "var(--neon-primary)",
             color: "#0a0f0d",
             zIndex: 30,
           }}

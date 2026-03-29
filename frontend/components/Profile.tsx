@@ -65,7 +65,7 @@ export default function Profile({ pyusdBalance, onLoginClick, isMobile }: Profil
           onClick={onLoginClick}
           style={{
             padding: "10px 24px",
-            background: "#00ff88",
+            background: "var(--neon-primary)",
             color: "#0a0f0d",
             border: "none",
             borderRadius: 8,
@@ -91,7 +91,7 @@ export default function Profile({ pyusdBalance, onLoginClick, isMobile }: Profil
         style={{ borderBottom: "1px solid #1e3329" }}
       >
         <div className="flex items-center gap-3 mb-4">
-          <ProfileIcon size={isMobile ? 18 : 22} color="#00ff88" />
+          <ProfileIcon size={isMobile ? 18 : 22} color="var(--neon-primary)" />
           <h2
             style={{
               fontSize: isMobile ? 17 : 20,
@@ -111,7 +111,7 @@ export default function Profile({ pyusdBalance, onLoginClick, isMobile }: Profil
               width: isMobile ? 36 : 48,
               height: isMobile ? 36 : 48,
               borderRadius: "50%",
-              background: "linear-gradient(135deg, #00ff88, #00b4d8)",
+              background: "linear-gradient(135deg, var(--neon-primary), #00b4d8)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -159,7 +159,7 @@ export default function Profile({ pyusdBalance, onLoginClick, isMobile }: Profil
             >
               <span
                 className="text-xs font-bold tabular-nums"
-                style={{ color: "#00ff88" }}
+                style={{ color: "var(--neon-primary)" }}
               >
                 ${pyusdBalance.toFixed(isMobile ? 0 : 2)}
               </span>
@@ -184,9 +184,9 @@ export default function Profile({ pyusdBalance, onLoginClick, isMobile }: Profil
           <>
             <div className={`grid ${isMobile ? "grid-cols-2 gap-2" : "grid-cols-4 gap-3"}`}>
               {[
-                { label: "Win Rate", value: stats.totalBets > 0 ? `${stats.winRate.toFixed(1)}%` : "—", color: "#00ff88" },
+                { label: "Win Rate", value: stats.totalBets > 0 ? `${stats.winRate.toFixed(1)}%` : "—", color: "var(--neon-primary)" },
                 { label: "Total Bets", value: `${stats.totalBets}`, color: "#8ac4a7" },
-                { label: "Net P&L", value: stats.totalBets > 0 ? formatPnl(stats.netPnl) : "—", color: stats.netPnl >= 0 ? "#00ff88" : "#ef4444" },
+                { label: "Net P&L", value: stats.totalBets > 0 ? formatPnl(stats.netPnl) : "—", color: stats.netPnl >= 0 ? "var(--neon-primary)" : "#ef4444" },
                 { label: "Best Multi", value: stats.bestMultiplier > 0 ? `${stats.bestMultiplier.toFixed(1)}x` : "—", color: "#00e5ff" },
               ].map((stat) => (
                 <div
@@ -350,7 +350,7 @@ export default function Profile({ pyusdBalance, onLoginClick, isMobile }: Profil
                   borderBottom: "1px solid rgba(30, 51, 41, 0.5)",
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "rgba(0, 255, 136, 0.03)";
+                  e.currentTarget.style.background = "rgba(var(--neon-rgb), 0.03)";
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.background = "transparent";
@@ -415,7 +415,7 @@ export default function Profile({ pyusdBalance, onLoginClick, isMobile }: Profil
                       fontSize: 12,
                       fontWeight: 500,
                       fontFamily: "monospace",
-                      color: runningPnl[idx] >= 0 ? "#00ff88" : "#ef4444",
+                      color: runningPnl[idx] >= 0 ? "var(--neon-primary)" : "#ef4444",
                     }}
                   >
                     {formatPnl(runningPnl[idx])}

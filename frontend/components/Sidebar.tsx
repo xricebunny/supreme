@@ -44,14 +44,14 @@ export default function Sidebar({ onLoginClick, activeTab, onTabChange, isMobile
               style={{
                 background: "none",
                 border: "none",
-                color: isActive ? "#00ff88" : "#4a7a66",
+                color: isActive ? "var(--neon-primary)" : "#4a7a66",
                 cursor: "pointer",
                 fontSize: 10,
                 fontWeight: isActive ? 600 : 400,
                 minWidth: 64,
               }}
             >
-              <item.icon size={20} color={isActive ? "#00ff88" : "#4a7a66"} />
+              <item.icon size={20} color={isActive ? "var(--neon-primary)" : "#4a7a66"} />
               <span>{item.label}</span>
             </button>
           );
@@ -63,7 +63,7 @@ export default function Sidebar({ onLoginClick, activeTab, onTabChange, isMobile
             style={{
               background: "none",
               border: "none",
-              color: "#00ff88",
+              color: "var(--neon-primary)",
               cursor: "pointer",
               fontSize: 10,
               fontWeight: 600,
@@ -75,7 +75,7 @@ export default function Sidebar({ onLoginClick, activeTab, onTabChange, isMobile
                 width: 20,
                 height: 20,
                 borderRadius: "50%",
-                background: "#00ff88",
+                background: "var(--neon-primary)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -108,7 +108,7 @@ export default function Sidebar({ onLoginClick, activeTab, onTabChange, isMobile
         <h1
           className="text-xl font-bold tracking-tight"
           style={{
-            color: "#00ff88",
+            color: "var(--neon-primary)",
             fontFamily: "Inter, system-ui, sans-serif",
             letterSpacing: "-0.5px",
           }}
@@ -144,7 +144,7 @@ export default function Sidebar({ onLoginClick, activeTab, onTabChange, isMobile
                 fontWeight: isActive ? 600 : 400,
               }}
             >
-              <item.icon size={18} color={isActive ? "#00ff88" : "#4a7a66"} />
+              <item.icon size={18} color={isActive ? "var(--neon-primary)" : "#4a7a66"} />
               <span>{item.label}</span>
             </button>
             {item.tooltip && hoveredItem === item.label && (
@@ -247,7 +247,7 @@ export default function Sidebar({ onLoginClick, activeTab, onTabChange, isMobile
             style={{
               width: "100%",
               padding: "10px 16px",
-              background: "#00ff88",
+              background: "var(--neon-primary)",
               color: "#0a0f0d",
               border: "none",
               borderRadius: 8,

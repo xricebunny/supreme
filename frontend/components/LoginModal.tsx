@@ -57,7 +57,7 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
           border: "1px solid #1e3329",
           borderRadius: 12,
           padding: "32px 28px",
-          boxShadow: "0 0 40px rgba(0, 255, 136, 0.08)",
+          boxShadow: "0 0 40px rgba(var(--neon-rgb), 0.08)",
         }}
       >
         {/* Close button */}
@@ -90,7 +90,7 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
           }}
         >
           Login to{" "}
-          <span style={{ color: "#00ff88" }}>SUPREME</span>
+          <span style={{ color: "var(--neon-primary)" }}>SUPREME</span>
         </h2>
         <p
           style={{
@@ -125,8 +125,8 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
               boxSizing: "border-box",
             }}
             onFocus={(e) => {
-              e.currentTarget.style.borderColor = "#00ff88";
-              e.currentTarget.style.boxShadow = "0 0 0 1px rgba(0, 255, 136, 0.3)";
+              e.currentTarget.style.borderColor = "var(--neon-primary)";
+              e.currentTarget.style.boxShadow = "0 0 0 1px rgba(var(--neon-rgb), 0.3)";
             }}
             onBlur={(e) => {
               e.currentTarget.style.borderColor = "#1e3329";
@@ -139,7 +139,7 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
             style={{
               width: "100%",
               padding: "12px",
-              background: !email.trim() || sending ? "#1e3329" : "#00ff88",
+              background: !email.trim() || sending ? "#1e3329" : "var(--neon-primary)",
               color: !email.trim() || sending ? "#4a7a66" : "#0a0f0d",
               border: "none",
               borderRadius: 8,

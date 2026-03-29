@@ -44,7 +44,7 @@ export default function PriceDisplay({ price, symbol, onSymbolChange }: PriceDis
         </span>
         <span
           className="text-lg font-semibold tabular-nums"
-          style={{ color: "#00ff88" }}
+          style={{ color: "var(--neon-primary)" }}
         >
           {formatPrice(price)}
         </span>
@@ -85,12 +85,12 @@ export default function PriceDisplay({ price, symbol, onSymbolChange }: PriceDis
               key={t}
               className="w-full text-left px-4 py-2.5 text-sm font-medium flex items-center gap-2"
               style={{
-                color: t === symbol ? "#00ff88" : "#8ac4a7",
-                background: t === symbol ? "rgba(0,255,136,0.08)" : "transparent",
+                color: t === symbol ? "var(--neon-primary)" : "#8ac4a7",
+                background: t === symbol ? "rgba(var(--neon-rgb),0.08)" : "transparent",
               }}
               onMouseEnter={(e) => {
                 if (t !== symbol) {
-                  (e.currentTarget as HTMLElement).style.background = "rgba(0,255,136,0.04)";
+                  (e.currentTarget as HTMLElement).style.background = "rgba(var(--neon-rgb),0.04)";
                 }
               }}
               onMouseLeave={(e) => {
@@ -108,7 +108,7 @@ export default function PriceDisplay({ price, symbol, onSymbolChange }: PriceDis
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                   <path
                     d="M2 6L5 9L10 3"
-                    stroke="#00ff88"
+                    stroke="var(--neon-primary)"
                     strokeWidth="1.5"
                     strokeLinecap="round"
                     strokeLinejoin="round"

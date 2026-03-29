@@ -9,6 +9,7 @@ import { useBalance } from "@/hooks/useBalance";
 import { useBetManager } from "@/hooks/useBetManager";
 import { useBackendHealth } from "@/hooks/useBackendHealth";
 import { useTokenSelector } from "@/hooks/useTokenSelector";
+import { applyTokenTheme } from "@/lib/tokenTheme";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import Sidebar from "@/components/Sidebar";
 import type { Tab } from "@/components/Sidebar";
@@ -29,6 +30,7 @@ export default function TradePage() {
   const { address } = useAuth();
   const { magic } = useMagic();
   const { token, setToken, tokenPair } = useTokenSelector();
+  useEffect(() => { applyTokenTheme(token); }, [token]);
   const { currentPrice, priceHistory, connected, timedOut } = useBinancePrice(token);
   const { betSize, setBetSize } = useGameState(currentPrice);
   const backendHealth = useBackendHealth(token);
@@ -155,7 +157,7 @@ export default function TradePage() {
               {isMobile && (
                 <span
                   className="text-sm font-bold"
-                  style={{ color: "#00ff88", letterSpacing: "-0.5px", marginRight: 4 }}
+                  style={{ color: "var(--neon-primary)", letterSpacing: "-0.5px", marginRight: 4 }}
                 >
                   SUP
                 </span>
@@ -191,12 +193,12 @@ export default function TradePage() {
                         ? "#ef4444"
                         : backendHealth.oracleStale
                           ? "#f59e0b"
-                          : "#00ff88",
+                          : "var(--neon-primary)",
                       boxShadow: !backendHealth.connected
                         ? "0 0 4px #ef4444"
                         : backendHealth.oracleStale
                           ? "0 0 4px #f59e0b"
-                          : "0 0 4px #00ff88",
+                          : "0 0 4px var(--neon-primary)",
                       flexShrink: 0,
                     }}
                   />
@@ -232,19 +234,19 @@ export default function TradePage() {
                         ? "#ef4444"
                         : backendHealth.oracleStale
                           ? "#f59e0b"
-                          : "#00ff88",
+                          : "var(--neon-primary)",
                       boxShadow: !backendHealth.connected
                         ? "0 0 4px #ef4444"
                         : backendHealth.oracleStale
                           ? "0 0 4px #f59e0b"
-                          : "0 0 4px #00ff88",
+                          : "0 0 4px var(--neon-primary)",
                       flexShrink: 0,
                     }}
                   />
                   {address && (
                     <span
                       className="text-xs font-bold tabular-nums"
-                      style={{ color: "#00ff88" }}
+                      style={{ color: "var(--neon-primary)" }}
                     >
                       ${optimisticBalance.toFixed(0)}
                     </span>
@@ -262,7 +264,7 @@ export default function TradePage() {
                     >
                       <span
                         className="text-xs font-bold tabular-nums"
-                        style={{ color: "#00ff88" }}
+                        style={{ color: "var(--neon-primary)" }}
                       >
                         ${optimisticBalance.toFixed(2)}
                       </span>
@@ -287,7 +289,7 @@ export default function TradePage() {
                           width: 6,
                           height: 6,
                           borderRadius: "50%",
-                          background: "#00ff88",
+                          background: "var(--neon-primary)",
                           flexShrink: 0,
                         }}
                       />
@@ -314,7 +316,7 @@ export default function TradePage() {
                 <div className="text-center">
                   <div
                     className="text-sm font-medium mb-2"
-                    style={{ color: timedOut ? "#ef4444" : "#00ff88" }}
+                    style={{ color: timedOut ? "#ef4444" : "var(--neon-primary)" }}
                   >
                     {timedOut
                       ? "Can't reach Binance — check your connection"

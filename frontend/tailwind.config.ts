@@ -17,9 +17,9 @@ const config: Config = {
           grid: "#1e3329",
         },
         neon: {
-          primary: "#00ff88",
-          glow: "rgba(0, 255, 136, 0.5)",
-          dim: "rgba(0, 255, 136, 0.15)",
+          primary: "var(--neon-primary)",
+          glow: "var(--neon-glow)",
+          dim: "var(--neon-dim)",
         },
         cyan: {
           bet: "#00e5ff",

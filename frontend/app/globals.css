@@ -11,8 +11,10 @@
   --border-grid: #1e3329;
 
   --neon-primary: #00ff88;
+  --neon-rgb: 0, 255, 136;
   --neon-glow: rgba(0, 255, 136, 0.5);
   --neon-dim: rgba(0, 255, 136, 0.15);
+  --neon-mid: #80ffbb;
 
   --cyan-bet: #00e5ff;
   --cyan-border: #40efff;
@@ -64,13 +66,13 @@ body {
   border-radius: 2px;
   background: linear-gradient(
     135deg,
-    rgba(0, 255, 136, 0.08),
-    rgba(0, 255, 136, 0.02)
+    rgba(var(--neon-rgb), 0.08),
+    rgba(var(--neon-rgb), 0.02)
   );
-  border: 1px solid rgba(0, 255, 136, 0.25);
+  border: 1px solid rgba(var(--neon-rgb), 0.25);
   box-shadow:
-    0 0 8px rgba(0, 255, 136, 0.15),
-    inset 0 0 4px rgba(0, 255, 136, 0.05);
+    0 0 8px rgba(var(--neon-rgb), 0.15),
+    inset 0 0 4px rgba(var(--neon-rgb), 0.05);
   pointer-events: none;
   z-index: -1;
 }
@@ -81,7 +83,7 @@ body {
   position: absolute;
   inset: -3px;
   border-radius: 3px;
-  border: 1px solid rgba(0, 255, 136, 0.08);
+  border: 1px solid rgba(var(--neon-rgb), 0.08);
   pointer-events: none;
   z-index: -2;
 }
@@ -90,7 +92,7 @@ body {
 .cell-payout {
   font-size: 11px;
   font-weight: 500;
-  color: #00ff88;
+  color: var(--neon-primary);
   opacity: 0.7;
   transition: opacity 0.15s ease;
   line-height: 1;
@@ -98,8 +100,8 @@ body {
 
 .grid-cell:hover .cell-payout {
   opacity: 1;
-  color: #00ff88;
-  text-shadow: 0 0 6px rgba(0, 255, 136, 0.4);
+  color: var(--neon-primary);
+  text-shadow: 0 0 6px rgba(var(--neon-rgb), 0.4);
 }
 
 /* ===== Active Bet Cell ===== */
@@ -159,8 +161,8 @@ body {
 }
 
 @keyframes toastGlowGreen {
-  0%, 100% { box-shadow: 0 0 12px rgba(0, 255, 136, 0.3); }
-  50%      { box-shadow: 0 0 24px rgba(0, 255, 136, 0.6), 0 0 48px rgba(0, 255, 136, 0.2); }
+  0%, 100% { box-shadow: 0 0 12px rgba(var(--neon-rgb), 0.3); }
+  50%      { box-shadow: 0 0 24px rgba(var(--neon-rgb), 0.6), 0 0 48px rgba(var(--neon-rgb), 0.2); }
 }
 
 @keyframes toastGlowRed {
@@ -170,8 +172,8 @@ body {
 
 /* ===== Bet Cell Result Flash ===== */
 @keyframes cellWinFlash {
-  0%   { background: rgba(0, 255, 136, 0.7); }
-  100% { background: rgba(0, 255, 136, 0.2); }
+  0%   { background: rgba(var(--neon-rgb), 0.7); }
+  100% { background: rgba(var(--neon-rgb), 0.2); }
 }
 
 @keyframes cellLoseFlash {
@@ -181,8 +183,8 @@ body {
 
 .bet-cell-won {
   animation: cellWinFlash 0.6s ease-out forwards;
-  border: 2px solid #00ff88 !important;
-  box-shadow: 0 0 16px rgba(0, 255, 136, 0.5), inset 0 0 8px rgba(0, 255, 136, 0.15);
+  border: 2px solid var(--neon-primary) !important;
+  box-shadow: 0 0 16px rgba(var(--neon-rgb), 0.5), inset 0 0 8px rgba(var(--neon-rgb), 0.15);
   z-index: 10;
 }
 

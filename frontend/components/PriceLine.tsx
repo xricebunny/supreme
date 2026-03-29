@@ -105,7 +105,7 @@ export default function PriceLine({
 
   if (!pathData || !lastPoint) return null;
 
-  const lineColor = "#00ff88";
+  const lineColor = "var(--neon-primary)";
   const gradientId = "priceLineBeamGrad";
   const glowGradientId = "priceLineGlowGrad";
   const beamGradientId = "priceLineBeamWhite";
@@ -150,7 +150,7 @@ export default function PriceLine({
           <stop offset="0%" stopColor={lineColor} stopOpacity="0.1" />
           <stop offset="40%" stopColor={lineColor} stopOpacity="0.5" />
           <stop offset="75%" stopColor={lineColor} stopOpacity="0.9" />
-          <stop offset="92%" stopColor="#80ffbb" stopOpacity="1" />
+          <stop offset="92%" stopColor="var(--neon-mid)" stopOpacity="1" />
           <stop offset="100%" stopColor="#ffffff" stopOpacity="1" />
         </linearGradient>
 

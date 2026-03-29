@@ -81,7 +81,7 @@ export default function Leaderboard({ isMobile }: LeaderboardProps) {
       >
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <TrophyIcon size={isMobile ? 18 : 22} color="#00ff88" />
+            <TrophyIcon size={isMobile ? 18 : 22} color="var(--neon-primary)" />
             <h2
               style={{
                 fontSize: isMobile ? 17 : 20,
@@ -174,23 +174,23 @@ export default function Leaderboard({ isMobile }: LeaderboardProps) {
                   className={`flex items-center ${isMobile ? "gap-2 px-2 py-2.5" : "gap-3 px-3 py-3"} rounded-lg transition-colors`}
                   style={{
                     background: isCurrentUser
-                      ? "rgba(0, 255, 136, 0.08)"
+                      ? "rgba(var(--neon-rgb), 0.08)"
                       : rank <= 3
-                        ? "rgba(0, 255, 136, 0.03)"
+                        ? "rgba(var(--neon-rgb), 0.03)"
                         : "transparent",
                     borderBottom: "1px solid rgba(30, 51, 41, 0.5)",
-                    border: isCurrentUser ? "1px solid rgba(0, 255, 136, 0.2)" : undefined,
+                    border: isCurrentUser ? "1px solid rgba(var(--neon-rgb), 0.2)" : undefined,
                     borderRadius: isCurrentUser ? 8 : undefined,
                   }}
                   onMouseEnter={(e) => {
                     if (!isCurrentUser) {
-                      e.currentTarget.style.background = "rgba(0, 255, 136, 0.06)";
+                      e.currentTarget.style.background = "rgba(var(--neon-rgb), 0.06)";
                     }
                   }}
                   onMouseLeave={(e) => {
                     if (!isCurrentUser) {
                       e.currentTarget.style.background =
-                        rank <= 3 ? "rgba(0, 255, 136, 0.03)" : "transparent";
+                        rank <= 3 ? "rgba(var(--neon-rgb), 0.03)" : "transparent";
                     }
                   }}
                 >
@@ -214,8 +214,8 @@ export default function Leaderboard({ isMobile }: LeaderboardProps) {
                       <span
                         style={{
                           fontSize: 10,
-                          color: "#00ff88",
-                          background: "rgba(0, 255, 136, 0.15)",
+                          color: "var(--neon-primary)",
+                          background: "rgba(var(--neon-rgb), 0.15)",
                           padding: "1px 6px",
                           borderRadius: 4,
                           fontWeight: 600,
@@ -270,7 +270,7 @@ export default function Leaderboard({ isMobile }: LeaderboardProps) {
                       textAlign: "right",
                       fontSize: isMobile ? 12 : 13,
                       fontWeight: 600,
-                      color: entry.netPnl >= 0 ? "#00ff88" : "#ef4444",
+                      color: entry.netPnl >= 0 ? "var(--neon-primary)" : "#ef4444",
                     }}
                   >
                     {formatPnl(entry.netPnl)}

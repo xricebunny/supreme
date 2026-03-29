@@ -77,7 +77,7 @@ export default function BottomBar({
               className={`flex items-center gap-2 ${isMobile ? "px-2.5 py-1.5" : "px-4 py-2"} rounded-full`}
               style={{ background: "#111a16" }}
             >
-              <CoinsIcon size={isMobile ? 14 : 16} color="#00ff88" />
+              <CoinsIcon size={isMobile ? 14 : 16} color="var(--neon-primary)" />
               <span
                 className={`${isMobile ? "text-xs" : "text-sm"} font-semibold tabular-nums`}
                 style={{ color: "#ffffff" }}
@@ -101,7 +101,7 @@ export default function BottomBar({
                 style={{
                   background: funding ? "#1a2721" : "#111a16",
                   border: "1px solid #1e3329",
-                  color: funding ? "#4a7a66" : "#00ff88",
+                  color: funding ? "#4a7a66" : "var(--neon-primary)",
                   cursor: funding ? "wait" : "pointer",
                   fontSize: isMobile ? 11 : 12,
                   fontWeight: 600,
@@ -117,7 +117,7 @@ export default function BottomBar({
                 style={{
                   color: fundMessage.includes("failed")
                     ? "#f59e0b"
-                    : "#00ff88",
+                    : "var(--neon-primary)",
                 }}
               >
                 {fundMessage}
@@ -184,7 +184,7 @@ export default function BottomBar({
             border: "1px solid #1e3329",
           }}
         >
-          <ChipIcon size={isMobile ? 14 : 16} color="#00ff88" />
+          <ChipIcon size={isMobile ? 14 : 16} color="var(--neon-primary)" />
           <span
             className={`${isMobile ? "text-xs" : "text-sm"} font-bold tabular-nums`}
             style={{ color: "#ffffff" }}
