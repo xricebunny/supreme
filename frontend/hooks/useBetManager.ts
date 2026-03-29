@@ -10,7 +10,7 @@ import { OPEN_POSITION, OPEN_FLOW_POSITION } from "@/lib/transactions";
 import { getMultiplier } from "@/lib/multiplier";
 import { PricePoint } from "@/types";
 import type { TokenSymbol } from "./useBinancePrice";
-import { TOKEN_LABELS } from "./useTokenSelector";
+
 
 export type BetStatus = "active" | "won" | "lost" | "failed";
 
@@ -213,7 +213,6 @@ export function useBetManager(
       deductBalance(params.betSize);
 
       const currentToken = tokenRef.current;
-      const tokenLabel = TOKEN_LABELS[currentToken];
 
       // Queue the on-chain transaction — Magic.link has a single key so
       // we must wait for each tx to seal before submitting the next one.

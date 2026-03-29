@@ -116,7 +116,7 @@ export function useProfile(address: string | null) {
 
       setPositions(all);
     } catch (err: any) {
-      console.error("[useProfile] Failed to fetch positions:", err);
+      // positions fetch failed
       setError(err.message || "Failed to load positions");
     } finally {
       setLoading(false);

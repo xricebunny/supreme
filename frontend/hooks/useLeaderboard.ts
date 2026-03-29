@@ -15,7 +15,7 @@ export function useLeaderboard() {
       const data = await getLeaderboard();
       setEntries(data);
     } catch (err: any) {
-      console.error("[useLeaderboard] Failed:", err);
+      // leaderboard fetch failed
       setError(err.message || "Failed to load leaderboard");
     } finally {
       setLoading(false);
