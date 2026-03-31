@@ -102,11 +102,17 @@ function signWithKey(privateKey: string, message: string): string {
 /** Create an FCL authorization function for the admin account with a specific key index. */
 export function adminAuthorization(keyIndex: number = 0) {
   return async (account: any) => {
+    // Fetch the latest sequence number from chain to avoid stale FCL cache
+    const flowAccount = await fcl.account(ADMIN_ADDRESS);
+    const key = flowAccount.keys.find((k: any) => k.index === keyIndex);
+    const sequenceNum = key ? key.sequenceNumber : 0;
+
     return {
       ...account,
       tempId: `${ADMIN_ADDRESS}-${keyIndex}`,
       addr: fcl.sansPrefix(ADMIN_ADDRESS),
       keyId: keyIndex,
+      sequenceNum,
       signingFunction: async (signable: any) => {
         return {
           addr: fcl.withPrefix(ADMIN_ADDRESS),

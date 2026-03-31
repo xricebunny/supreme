@@ -64,7 +64,7 @@ All deployed at **`0xb36266e524c6c727`**:
 | `PredictionGame` | BTC positions, house vault, multi-auth openPosition, oracle-based settlement |
 | `FlowPriceOracle` | FLOW price history (same design as PriceOracle) |
 | `FlowPriceRangeOracle` | High/low price ranges per oracle push (FLOW) |
-| `FlowPredictionGame` | FLOW positions — uses FlowToken instead of MockPYUSD |
+| `FlowPredictionGame` | FLOW positions — uses MockPYUSD (same as BTC game) |
 | `BonusRound` | Streak-based bonus multiplier using Flow's on-chain randomness (commit-reveal) |
 | `RandomConsumer` | Secure randomness consumption from Flow's random beacon |
 | `Xorshift128plus` | PRG struct (xorshift128+ algorithm) for deterministic random number generation |
@@ -106,11 +106,11 @@ supreme/
 
 | Layer | Tech |
 |-------|------|
-| Frontend | Next.js 14 (App Router), React 18, Tailwind CSS, Framer Motion |
+| Frontend | Next.js 14 (App Router), React 18, Tailwind CSS |
 | Backend | Express 4, TypeScript (tsx) |
 | Blockchain | Flow Testnet, Cadence smart contracts |
 | Auth | Magic.link (email → Flow wallet) |
-| Price Feed | Binance WebSocket (`btcusdt@aggTrade`, `flowusdt@aggTrade`, 200ms sampling) |
+| Price Feed | Binance WebSocket (`btcusdt@aggTrade`, `flowusdt@aggTrade`) |
 | Signing | ECDSA P256 (elliptic + SHA3), key pool with rotation |
 
 ## API Endpoints
